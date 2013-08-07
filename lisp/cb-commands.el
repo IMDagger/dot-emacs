@@ -29,6 +29,7 @@
 (require 's)
 (require 'bind-key)
 (require 'cb-lib)
+(require 'cb-mode-groups)
 (autoload 'emr-reporting-buffer-changes "emr")
 (autoload 'org-move-item-down "org-list")
 (autoload 'org-move-item-up "org-list")
@@ -62,8 +63,9 @@ Changes the selected buffer."
         (setq i (1+ i))))))
 
 (defvar cb:kill-buffer-ignored-list
-  '("*scratch*" "*Messages*" "*GROUP*"
-    "*shell*" "*eshell*" "*ansi-term*"))
+  '("*scratch*" "*Messages*" "*Group*"
+    "*shell*" "*eshell*" "*ansi-term*"
+    "diary.org" "notes.org"))
 
 ;;;###autoload
 (defun kill-current-buffer ()
@@ -79,10 +81,10 @@ If this buffer is a member of `cb:kill-buffer-ignored-list, bury it rather than 
   "Close all buffers not in the ignore list."
   (interactive)
   (delete-other-windows)
-  (->> (--filter-buffers
-        (or (-contains? cb:kill-buffer-ignored-list (buffer-name it))
-            (get-buffer-process it)))
-    (-each 'kill-buffer)))
+  (-each (--filter-buffers
+          (not (or (-contains? cb:kill-buffer-ignored-list (buffer-name it))
+                   (get-buffer-process it))))
+         'kill-buffer))
 
 (hook-fn 'find-file-hook
   "Hide DOS EOL chars."
@@ -107,9 +109,10 @@ If this buffer is a member of `cb:kill-buffer-ignored-list, bury it rather than 
     (indent-region (point-min) (point-max))))
 
 ;;;###autoload
-(defun indent-dwim ()
-  "Perform a context-sensitive indentation action."
-  (interactive)
+(defun indent-dwim (&optional arg)
+  "Perform a context-sensitive indentation action.
+With prefix argument ARG, justify text."
+  (interactive "P")
   (cond
    ((region-active-p)
     (indent-region (region-beginning) (region-end))
@@ -117,9 +120,11 @@ If this buffer is a member of `cb:kill-buffer-ignored-list, bury it rather than 
 
    ((-contains? '(font-lock-comment-face
                   font-lock-string-face
-                  font-lock-doc-string-face)
+                  font-lock-doc-face)
                 (face-at-point))
-    (fill-paragraph)
+    (if (apply 'derived-mode-p cb:lisp-modes)
+        (lisp-fill-paragraph arg)
+      (fill-paragraph arg))
     (message "Filled paragraph."))
 
    ((thing-at-point 'defun)
@@ -149,6 +154,9 @@ If this buffer is a member of `cb:kill-buffer-ignored-list, bury it rather than 
           (set-buffer-modified-p nil)))))))
 
 ;;;###autoload
+(defalias 'rename-file-and-buffer 'rename-buffer-and-file)
+
+;;;###autoload
 (defun delete-buffer-and-file ()
   "Delete a file and its associated buffer."
   (interactive)
@@ -161,6 +169,9 @@ If this buffer is a member of `cb:kill-buffer-ignored-list, bury it rather than 
         (delete-file filename)
         (kill-buffer buffer)
         (message "File '%s' successfully removed" filename)))))
+
+;;;###autoload
+(defalias 'delete-file-and-buffer 'delete-buffer-and-file)
 
 (defun cb:find-autoloads (buffer)
   (->> (with-current-buffer buffer
@@ -246,12 +257,14 @@ Repeated invocations toggle between the two most recently open buffers."
   (interactive)
   (switch-to-buffer (other-buffer (current-buffer) 1)))
 
-(bind-key "C-c k b" 'clean-buffers)
-(bind-key "C-<up>" 'move-line-up)
-(bind-key "C-<down>" 'move-line-down)
 (bind-key* "C-;" 'swap-with-previous-buffer)
-(bind-key "s-f" 'cb:rotate-buffers)
-(bind-key "C-x C-o" 'other-window)
+(bind-keys
+  "C-c k b"  'clean-buffers
+  "C-<up>"   'move-line-up
+  "C-<down>" 'move-line-down
+  "s-f"      'cb:rotate-buffers
+  "C-x C-o"  'other-window)
+
 
 (define-key prog-mode-map (kbd "M-q") 'indent-dwim)
 

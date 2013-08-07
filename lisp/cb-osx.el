@@ -27,6 +27,8 @@
 ;;; Code:
 
 (require 'use-package)
+(require 'cb-lib)
+(autoload 'thing-at-point-url-at-point "thingatpt")
 
 (use-package exec-path-from-shell
   :ensure t
@@ -42,15 +44,13 @@
 ;; Enable mouse support in terminal.
 (use-package mouse
   :if (not (display-graphic-p))
+  :defines (mouse-sel-mode)
   :config
   (progn
     (xterm-mouse-mode t)
-    (defun track-mouse (e))
-    (setq mouse-sel-mode t)
-
-    (when (equal system-type 'darwin)
-      (global-set-key [mouse-4] (command (scroll-down 1)))
-      (global-set-key [mouse-5] (command (scroll-up 1))))))
+    (defun track-mouse (_))
+    (global-set-key [mouse-4] (command (scroll-down 1)))
+    (global-set-key [mouse-5] (command (scroll-up 1)))))
 
 ;; Set terminfo so ansi-term displays shells correctly.
 
@@ -61,6 +61,13 @@
      "-o" terminfo
      "/Applications/Emacs.app/Contents/Resources/etc/e/eterm-color.ti")))
 
+;; Play Mail's message sent sound when sending mail.
+
+(hook-fn 'async-smtpmail-sent-hook
+  (let ((snd "/Applications/Mail.app/Contents/Resources/Mail Sent.aiff"))
+    (when (file-exists-p snd)
+      (start-process "Mail sent" " mail sent" "afplay" snd))))
+
 ;; Use system clipboard.
 
 (unless window-system
@@ -68,7 +75,7 @@
   (defun cb:osx-paste ()
     (shell-command-to-string "pbpaste"))
 
-  (defun cb:osx-copy (text &optional push)
+  (defun cb:osx-copy (text &optional _push)
     (let ((process-connection-type nil))
       (let ((proc (start-process "pbcopy" "*Messages*" "pbcopy")))
         (process-send-string proc text)
@@ -76,6 +83,51 @@
 
   (setq interprogram-cut-function   'cb:osx-copy
         interprogram-paste-function 'cb:osx-paste))
+
+(use-package org-mac-iCal
+  :ensure t
+  :commands (org-mac-iCal)
+  :init
+  (after 'org-agenda
+    ;; Package.el doesn't initialize this package for some reason.
+    ;; Add it to the load path manually.
+    (->> (f-entries cb:elpa-dir)
+      (--first (s-contains? "org-mac-iCal" it))
+      (add-to-list 'load-path))
+
+    (add-to-list 'org-agenda-custom-commands
+                 '("I" "Import diary from iCal" agenda ""
+                   ((org-agenda-mode-hook
+                     (lambda () (org-mac-iCal))))))
+
+    (hook-fn 'org-agenda-cleanup-fancy-diary-hook
+      "Ensure all-day events are not orphaned below TODO items."
+      (goto-char (point-min))
+      (save-excursion
+        (while (re-search-forward "^[a-z]" nil t)
+          (goto-char (match-beginning 0))
+          (insert "0:00-24:00 ")))
+      (while (re-search-forward "^ [a-z]" nil t)
+        (goto-char (match-beginning 0))
+        (save-excursion
+          (re-search-backward "^[0-9]+:[0-9]+-[0-9]+:[0-9]+ " nil t))
+        (insert (match-string 0))))))
+
+(defun mac-open-dwim (str)
+  "Pass STR to OS X's open command.
+When used interactively, makes a guess at what to pass."
+  (interactive
+   (list
+    (let ((default (or (thing-at-point-url-at-point)
+                       (get-text-property (point) 'shr-url)
+                       (when (boundp 'w3m-current-url) w3m-current-url)
+                       (buffer-file-name))))
+      (if default
+          (read-string (format "Open (%s): " default) nil t default)
+        (read-string "Open: " nil t)))))
+  (shell-command (format "open '%s'" str)))
+
+(bind-key* "S-s-<return>" 'mac-open-dwim)
 
 (provide 'cb-osx)
 

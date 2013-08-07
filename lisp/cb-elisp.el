@@ -28,6 +28,24 @@
 
 (require 'use-package)
 (require 'noflet)
+(require 'cb-lib)
+(require 'cb-evil)
+
+(defun cb:special-elisp-file? ()
+  (and (derived-mode-p 'emacs-lisp-mode)
+       (buffer-file-name)
+       (or
+        (true? scratch-buffer)
+        (s-matches? (rx bol (? ".") (or "org-" "dir-locals"))
+                    (buffer-name))
+        (equal "*scratch*" (buffer-name)))))
+
+(after 'flycheck
+  ;; Use advice to ensure the mode is not started.
+  (defadvice flycheck-may-enable-mode
+    (around dont-activate-if-special-el-file activate)
+    "Prevent flycheck from running for certain elisp file types."
+    (and (not (cb:special-elisp-file?)) ad-do-it)))
 
 (after 'projectile
 
@@ -55,10 +73,13 @@
    `(
      ;; General keywords
      (,(rx "(" (group (or "use-package"
+                          "cal"
                           "hook-fn"
+                          "hook-fns"
                           "after"
                           "noflet"
                           "ac-define-source"
+                          "evil-global-set-keys"
                           "flycheck-declare-checker"
                           "cl-destructuring-bind"
                           "cl-defstruct")
@@ -97,11 +118,10 @@
 
       (1 font-lock-type-face)))))
 
-(after 'smartparens
-  (hook-fn 'minibuffer-setup-hook
-    "Enable Smartparens during eval-expression."
-    (when (equal this-command 'eval-expression)
-      (paredit-mode +1))))
+(hook-fn 'minibuffer-setup-hook
+  "Enable Paredit during eval-expression."
+  (when (equal this-command 'eval-expression)
+    (paredit-mode +1)))
 
 (use-package lisp-mode
   :defer t
@@ -109,7 +129,16 @@
   :config
   (progn
 
-    (defun cb:switch-to-ielm ()
+    (define-keys emacs-lisp-mode-map
+      "C-c C-t" 'ert
+      "C-c e b" 'eval-buffer
+      "C-c C-l" 'emacs-lisp-byte-compile-and-load
+      "C-c C-z" 'switch-to-ielm
+      "C-c e r" 'eval-region)
+
+    ;;;; IELM
+
+    (defun switch-to-ielm ()
       "Start up or switch to an Inferior Emacs Lisp buffer."
       (interactive)
       ;; HACK: rebind switch-to-buffer so ielm opens in another window.
@@ -117,40 +146,27 @@
         (ielm)
         (cb:append-buffer)))
 
-    (defun cb:switch-to-elisp ()
+    (defun switch-to-elisp ()
       "Switch to the last active elisp buffer."
       (interactive)
       (-when-let (buf (--first-buffer (derived-mode-p 'emacs-lisp-mode)))
         (switch-to-buffer-other-window buf)))
 
-    (define-key emacs-lisp-mode-map (kbd "C-c C-t") 'ert)
-    (define-key emacs-lisp-mode-map (kbd "C-c e b") 'eval-buffer)
-    (define-key emacs-lisp-mode-map (kbd "C-c e f") 'emacs-lisp-byte-compile-and-load)
-    (define-key emacs-lisp-mode-map (kbd "C-c C-z") 'cb:switch-to-ielm)
-    (define-key emacs-lisp-mode-map (kbd "C-c e r") 'eval-region)
-
     (hook-fn 'ielm-mode-hook
-      (local-set-key (kbd "C-c C-z") 'cb:switch-to-elisp))
+      (local-set-key (kbd "C-c C-z") 'switch-to-elisp))
 
-    (defun cb:special-elisp-file? ()
-      (and (derived-mode-p 'emacs-lisp-mode)
-           (-contains? '("*scratch*" ".dir-locals.el")
-                       (buffer-name))))
-
-    (defun cb:elisp-after-save ()
-      "Check parens are balanced and byte-compile."
-      (check-parens)
-      (ignore-errors
-        (unless (or (cb:special-elisp-file?) no-byte-compile)
-          (byte-compile-file (buffer-file-name)))))
+    ;;;; File handling
 
     (hook-fn 'emacs-lisp-mode-hook
-      (add-hook 'after-save-hook 'cb:elisp-after-save t 'local))
-
-    (hook-fn 'flycheck-mode-hook
-      "Disable flycheck mode for scratch buffer."
       (when (cb:special-elisp-file?)
-        (add-hook 'flycheck-before-syntax-check-hook (lambda () (flycheck-mode -1)) nil t)))
+        (setq-local no-byte-compile t))
+      (hook-fn 'after-save-hook
+        "Check parens are balanced and byte-compile."
+        :local t
+        (check-parens)
+        (byte-compile-file (buffer-file-name))))
+
+    ;;;; Advices
 
     (defadvice eval-buffer (after buffer-evaluated-feedback activate)
       "Message that the buffer has been evaluated."
@@ -159,11 +175,10 @@
 
 (use-package edebug
   :defer t
+  :commands edebug-next-mode
   :init
-  (progn
-    (autoload 'edebug-next-mode "edebug")
-    (hook-fn 'emacs-lisp-mode-hook
-      (local-set-key (kbd "C-x X d") 'edebug-defun))))
+  (hook-fn 'emacs-lisp-mode-hook
+    (local-set-key (kbd "C-x X d") 'edebug-defun)))
 
 (use-package ert-modeline
   :defer    t
@@ -200,9 +215,7 @@
 
 (use-package litable
   :ensure   t
-  :commands litable-mode
-  :defer    t
-  :init     (define-key emacs-lisp-mode-map (kbd "C-c C-l") 'litable-mode))
+  :commands litable-mode)
 
 (provide 'cb-elisp)
 

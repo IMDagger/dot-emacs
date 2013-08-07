@@ -35,9 +35,10 @@
 
 (after 'smartparens
 
-  ;; Paredit-style paren adjustment when moving up.
-  (--each cb:lisp-modes
-    (add-to-list 'sp-navigate-reindent-after-up it))
+  ;; Add lisp modes to `sp-navigate-reindent-after-up'.
+  ;; Provides Paredit-style paren reindentation when closing parens.
+  (let ((ls (assoc 'interactive sp-navigate-reindent-after-up)))
+    (setcdr ls (-uniq (-concat (cdr ls) cb:lisp-modes))))
 
   (defun sp-lisp-just-one-space (id action ctx)
     "Pad LISP delimiters with spaces."
@@ -54,11 +55,13 @@
                          (any "," "`" "'" "@" "#" "~" "(" "[" "{")) eol)
                  (buffer-substring (line-beginning-position) (point)))
           (just-one-space)))
-      ;; Insert space after separator, unless this form is at the end of
-      ;; another list.
+      ;; Insert space after separator, unless
+      ;; 1. this form is at the end of another list.
+      ;; 2. this form is at the end of the line.
       (save-excursion
         (search-forward (sp-get-pair id :close))
-        (unless (s-matches? (rx (any ")" "]" "}"))
+        (unless (s-matches? (rx (or (any ")" "]" "}")
+                                    eol))
                             (buffer-substring (point) (1+ (point))))
           (just-one-space)))))
 
@@ -76,9 +79,10 @@
 
 (use-package parenface-plus
   :ensure t
-  :defer  t
-  :idle   (require 'parenface-plus)
-  :init   (hook-fn 'prog-mode-hook (require 'parenface-plus)))
+  :config
+  ;; HACK: Ensure paren face is displayed the first time a candidate buffer is loaded.
+  (--each cb:lisp-modes
+    (font-lock-add-keywords it '(("(\\|)" . paren-face)))))
 
 (use-package eval-sexp-fu
   :commands eval-sexp-fu-flash-mode
@@ -101,9 +105,7 @@
     (let ((current-prefix-arg '-))
       (slime)))
   :config
-  (progn
-    (setq slime-lisp-implementations `((lisp ("sbcl" "--noinform"))))
-    (slime-setup '(slime-fancy))))
+  (setq slime-lisp-implementations `((lisp ("sbcl" "--noinform")))))
 
 (use-package ac-slime
   :ensure   t

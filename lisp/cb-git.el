@@ -28,6 +28,10 @@
 
 (require 'use-package)
 (require 'cb-lib)
+(require 'cb-evil)
+(autoload 'vc-git-root "vc-git")
+(autoload 'git-gutter+-refresh "git-gutter+")
+(autoload 'vc-git-register "vc-git")
 
 (define-prefix-command 'git-map)
 (bind-key "C-x g" 'git-map)
@@ -50,13 +54,38 @@
    ("C-x g D" . magit-diff))
   :init
   (progn
+
     (declare-modal-executor magit-status
       :command magit-status
       :bind    "M-G")
+
     (after 'dired
-      (define-key dired-mode-map (kbd "M-G") 'magit-status)))
+      (define-key dired-mode-map (kbd "M-G") 'magit-status))
+
+    (evil-global-set-keys 'normal
+      "g P" 'magit-key-mode-popup-pushing
+      "g l" 'magit-log
+      "g r" 'magit-reflog
+      "g D" 'magit-diff-working-tree
+      "g b" (command
+             (with-window-restore
+               (magit-branch-manager)
+               (buffer-local-set-key (kbd "q") (command (restore)))))))
+
   :config
   (progn
+
+    ;;;; Evil keys for magit diff.
+
+    (define-keys magit-diff-mode-map
+      "C-f" 'evil-scroll-page-down
+      "C-b" 'evil-scroll-page-up
+      "j"   'evil-next-line
+      "k"   'evil-previous-line
+      "/"   'evil-search-forward)
+
+    ;;;; View behaviour
+
     (declare-ido-wrapper magit-read-top-dir)
     (declare-modal-view magit-status)
     (declare-modal-view magit-log)
@@ -87,7 +116,9 @@
 
 (use-package magit-blame
   :commands magit-blame-mode
-  :bind ("C-x g b" . magit-blame-mode))
+  :bind ("C-x g b" . magit-blame-mode)
+  :config
+  (evil-global-set-key 'normal (kbd "g b") 'magit-blame-mode))
 
 (use-package git-auto-commit-mode
   :ensure t
@@ -95,13 +126,79 @@
   :init
   (add-to-list 'safe-local-variable-values '(gac-automatically-push-p . t)))
 
-(use-package git-gutter
+(use-package git-gutter+
+  :diminish git-gutter+-mode
+  :defer t
   :ensure t
-  :bind ("C-x g g" . git-gutter:toggle)
-  :commands
-  (git-gutter:toggle
-   git-gutter:clean
-   git-gutter))
+  :init
+  (hook-fn 'find-file-hook
+    (when (vc-git-root (buffer-file-name))
+      (require 'git-gutter+)))
+  :config
+  (progn
+
+    (defun cb-git:add ()
+      "Run 'git add' on the file for the current buffer."
+      (interactive)
+      (cond
+       ((not (buffer-file-name))
+        (user-error "Buffer has no corresponding file"))
+       ((not (vc-git-root (buffer-file-name)))
+        (user-error "Not a git repository"))
+       ((yes-or-no-p "Stage all changes to this file?")
+        (save-buffer)
+        (vc-git-register (list (buffer-file-name)))
+        (message "Done.")))
+      (git-gutter+-refresh))
+
+    (evil-global-set-keys 'normal
+      "g n" (lambda (arg)
+              (interactive "p")
+              (git-gutter+-refresh)
+              (git-gutter+-next-hunk arg))
+      "g p" (lambda (arg)
+              (interactive "p")
+              (git-gutter+-refresh)
+              (git-gutter+-previous-hunk arg))
+      "g h" 'git-gutter+-popup-hunk
+      "g x" 'git-gutter+-revert-hunk
+      "g s" 'git-gutter+-stage-hunks
+      "g a" 'cb-git:add
+      "g c" 'git-gutter+-commit
+      "g C" 'git-gutter+-stage-and-commit)
+
+    ;; Enable git gutter when viewing files in a git repository.
+    (hook-fns '(find-file-hook after-save-hook)
+      (when (vc-git-root (buffer-file-name))
+        (require 'magit)
+        (git-gutter+-mode +1)))
+
+    (defvar cb-git:gutter-refresh-idle-timer
+      (run-with-idle-timer 3 t (lambda ()
+                                 (when (true? git-gutter+-mode)
+                                   (git-gutter+-refresh)))))
+
+    (defadvice git-gutter+-commit (before save-windows activate)
+      "Save window state before and after git gutter commits."
+      (setq magit-pre-log-edit-window-configuration (current-window-configuration)))
+
+    (defadvice git-gutter+-stage-and-commit (before save-windows activate)
+      "Save window state before and after git gutter commits."
+      (setq magit-pre-log-edit-window-configuration (current-window-configuration)))
+
+    (defadvice git-gutter+-commit (after select-log activate)
+      "Select the log window when committing.
+Ensure a window is created for the commit window."
+      (let* ((buf (--first-buffer (derived-mode-p 'magit-log-edit-mode)))
+             (win (--first-window (equal buf (window-buffer it)))))
+        (if win
+            (select-window win)
+          (select-window (split-window-below -5))
+          (switch-to-buffer buf))))))
+
+(use-package git-gutter-fringe+
+  :ensure t
+  :if (or (daemonp) (display-graphic-p)))
 
 (use-package gist
   :ensure t
@@ -128,14 +225,6 @@
   :init
   (progn
 
-    (defun cb:apply-diff ()
-      (let ((file ediff-merge-store-file))
-        (set-buffer ediff-buffer-C)
-        (write-region (point-min) (point-max) file)
-        (message "Merge buffer saved in: %s" file)
-        (set-buffer-modified-p nil)
-        (sit-for 1)))
-
     (defun cb:handle-git-merge (local remote base merged)
       "Configure this emacs session for use as the git mergetool."
       (add-hook 'ediff-quit-hook 'kill-emacs)
@@ -144,6 +233,15 @@
 
   :config
   (progn
+
+    (defun cb:apply-diff ()
+      (let ((file ediff-merge-store-file))
+        (set-buffer ediff-buffer-C)
+        (write-region (point-min) (point-max) file)
+        (message "Merge buffer saved in: %s" file)
+        (set-buffer-modified-p nil)
+        (sit-for 1)))
+
     (setq diff-switches "-u"
           ediff-window-setup-function 'ediff-setup-windows-plain)
     (add-hook 'ediff-startup-hook 'turn-off-evil-mode)))

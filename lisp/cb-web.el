@@ -26,19 +26,60 @@
 
 ;;; Code:
 
+(require 'cb-lib)
 (require 'use-package)
+(require 's)
+(require 'async)
+(autoload 'thing-at-point-url-at-point "thingatpt")
+
+(after 'message
+
+  (defun cb-mail:next-field ()
+    (interactive)
+    (or (and (search-forward-regexp (rx bol (+ alnum) ":") nil t)
+             (progn (just-one-space) t))
+        (progn (and (search-forward "--text follows this line--" nil t) (forward-line)))))
+
+  (defun cb-mail:prev-field ()
+    (interactive)
+    (cl-flet ((find-field ()
+                          (beginning-of-line)
+                          (search-backward-regexp (rx bol (+ alnum) ":") nil t)
+                          (search-forward ":")))
+      (or (and (save-excursion (find-field))
+               (progn (find-field) (just-one-space) t))
+          (progn (and (search-backward "--text follows this line--" nil t) (forward-line))))))
+
+  (define-key message-mode-map (kbd "M-N") 'cb-mail:next-field)
+  (define-key message-mode-map (kbd "M-P") 'cb-mail:prev-field))
+
+(defvar async-smtpmail-sent-hook nil)
+
+(defun async-smtpmail-send-it (&rest _)
+  "Send mail asynchronously using another emacs process."
+  (let ((to (message-field-value "To")))
+    (message "Delivering message to %s..." to)
+    (async-start
+     `(lambda ()
+        (require 'smtpmail)
+        (with-temp-buffer
+          (insert ,(buffer-substring-no-properties (point-min) (point-max)))
+          ;; Pass in the variable environment for smtpmail
+          ,(async-inject-variables "\\`\\(smtpmail\\|\\(user-\\)?mail\\)-")
+          (smtpmail-send-it)))
+     `(lambda (&optional ignore)
+        (message "Delivering message to %s...done" ,to)
+        (run-hooks async-smtpmail-sent-hook)))))
 
 (use-package smtpmail
   :commands smtpmail-send-it
   :init
-  (setq send-mail-function 'smtpmail-send-it
-        message-send-mail-function 'smtpmail-send-it))
-
-(use-package gnus
-  :commands gnus
-  :defer t
+  (setq send-mail-function 'async-smtpmail-send-it
+        message-send-mail-function 'async-smtpmail-send-it)
   :config
-  (setq gnus-select-method '(nnml "mail")))
+  (when (equal system-type 'darwin)
+    (setq starttls-gnutls-program (executable-find "gnutls-cli")
+          starttls-use-gnutls t)))
 
 (use-package bbdb
   :ensure t
@@ -52,21 +93,22 @@
   (progn
     (setq
      bbdb-offer-save 1
-     bbdb-use-popup  t
-     bbdb-electric   t
-     bddb-popup-target-lines     1
+     bbdb-use-popup t
+     bbdb-electric t
+     bbdb-pop-up-window-size 9
+     bddb-popup-target-lines 1
      bbdb-dwim-net-address-allow-redundancy t
-     bbdb-quiet-about-name-mismatches       2
-     bbdb-always-add-address     t
-     bbdb-canonicalize-redundant-nets-p     t
+     bbdb-quiet-about-name-mismatches 2
+     bbdb-always-add-address t
+     bbdb-canonicalize-redundant-nets-p t
      bbdb-completion-type nil
-     bbdb-complete-name-allow-cycling       t
-     bbbd-message-caching-enabled           t
-     bbdb-use-alternate-names    t
-     bbdb-elided-display         t
-     bbdb/mail-auto-create-p     'bbdb-ignore-some-messages-hook
+     bbdb-complete-name-allow-cycling t
+     bbbd-message-caching-enabled t
+     bbdb-use-alternate-names t
+     bbdb-elided-display t
+     bbdb/mail-auto-create-p 'bbdb-ignore-some-messages-hook
      )
-    (bbdb-initialize)))
+    (bbdb-initialize 'gnus 'message)))
 
 (use-package bbdb-vcard
   :commands
@@ -74,7 +116,7 @@
    bbdb-vcard-import-buffer
    bbdb-vcard-export)
   :config
-  ;; HACK: calls functions that appear not to exist.
+  ;; HACK: ignore calls to unbound functions.
   (progn
     (defalias 'bbdb-record-Notes 'ignore)
     (defalias 'bbdb-record-set-Notes 'ignore)))
@@ -101,12 +143,6 @@
       :bind "M-W"
       :restore-bindings '("M-W" "M-E"))
 
-    (defun cb:find-window-with-mode (mode)
-      "Find the first window whose buffer is in major-mode MODE."
-      (--first-window
-       (with-current-buffer (window-buffer it)
-         (equal mode major-mode))))
-
     (defun cb:w3m-browse-url-as-help (url)
       "Browse the given URL in a help window."
       (interactive
@@ -115,13 +151,15 @@
                      (thing-at-point-url-at-point)
                      t)))
       (with-window-restore
-        (let ((win (or (cb:find-window-with-mode 'w3m-mode) (split-window))))
+        (let ((win (or (--first-window (with-current-buffer (window-buffer it)
+                                         (derived-mode-p 'w3m-mode)))
+                       (split-window))))
           (select-window win)
           (w3m-browse-url url))
         (local-set-key (kbd "q") (command (restore)))))
 
     (defun cb:w3m-browse-dwim (url)
-      "Browse to URL, ensuring it begins with http:// as reqiured by w3m."
+      "Browse to URL, ensuring it begins with http:// as required by w3m."
       (interactive
        (list
         (read-string "Go to URL: "
@@ -134,12 +172,28 @@
            (concat "http://" url)))
         (local-set-key (kbd "q") (command (restore)))))
 
-    (bind-key* "M-e" 'cb:w3m-browse-dwim)
-    )
+    (when (true? cb:use-vim-keybindings?)
+      (bind-key* "M-e" 'cb:w3m-browse-dwim)))
+
   :config
-  (hook-fn 'w3m-mode-hook
-    (buffer-face-set
-     `(:family ,(serif-font) :height 130))))
+  (progn
+    (bind-keys
+      :map w3m-mode-map
+      "z t" 'evil-scroll-line-to-top
+      "z b" 'evil-scroll-line-to-bottom
+      "z z" 'evil-scroll-line-to-center
+      "C-f" 'evil-scroll-page-down
+      "C-b" 'evil-scroll-page-up
+      "y"   'evil-yank
+      "p"   'evil-paste-after
+      "/"   'evil-search-forward
+      "?"   'evil-search-backward
+      "n"   'evil-search-next
+      "N"   'evil-search-previous)
+
+    (hook-fn 'w3m-mode-hook
+      (buffer-face-set
+       `(:family ,(serif-font) :height 130)))))
 
 (use-package erc
   :defer t

@@ -1,4 +1,4 @@
-;;; cb-vim.el --- Configuration for Evil and Vim
+;;; cb-evil.el --- Configuration for Evil and Vim
 
 ;; Copyright (C) 2013 Chris Barrett
 
@@ -27,6 +27,7 @@
 ;;; Code:
 
 (require 'use-package)
+(require 'cb-lib)
 
 (autoload 'woman-file-name-all-completions "woman")
 (autoload 'Man-getpage-in-background "man")
@@ -78,58 +79,61 @@
   :ensure   t
   :commands evil-mode
   :init
-  (add-hook 'after-init-hook 'evil-mode)
+  (progn
+    (add-hook 'after-init-hook 'evil-mode)
+
+    (defmacro evil-define-keys (state keymap &rest defs)
+      "Variadic version of `evil-define-key'.
+Creates STATE bindings for keymap. DEFS are alternating keys and functions."
+      (declare (indent 2))
+      `(after 'evil
+         ,@(--map `(evil-define-key ,state ,keymap (kbd ,(car it)) ,(cadr it))
+                  (-partition-all 2 defs))))
+
+    (defmacro evil-global-set-keys (state &rest defs)
+      "Variadic version of `evil-global-set-key'
+Creates STATE bindings for DEFS. DEFS are comprised of alternating string-symbol pairs."
+      (declare (indent 1))
+      `(after 'evil
+         ,@(--map `(evil-global-set-key ,state (kbd ,(car it)) ,(cadr it))
+                  (-partition-all 2 defs)))))
   :config
   (progn
-
-    (defun cb:append-buffer ()
-      "Enter insertion mode at the end of the current buffer."
-      (interactive)
-      (goto-char (point-max))
-      (when (fboundp 'evil-append-line)
-        (evil-append-line 1)))
-
     (defun evil-undefine ()
       (interactive)
       (let (evil-mode-map-alist)
         (call-interactively (key-binding (this-command-keys)))))
 
-    (define-key evil-normal-state-map (kbd "M-z") 'evil-emacs-state)
-    (define-key evil-emacs-state-map  (kbd "M-z") 'evil-normal-state)
-    (define-key evil-normal-state-map (kbd "C-z") 'evil-undefine)
-    (define-key evil-normal-state-map (kbd "SPC") 'evil-toggle-fold)
-    (define-key evil-insert-state-map (kbd "C-z") 'evil-undefine)
-    (define-key evil-visual-state-map (kbd "C-z") 'evil-undefine)
-    (define-key evil-normal-state-map (kbd "K")   'get-documentation)
+    (define-keys evil-normal-state-map
+      "M-z" 'evil-emacs-state
+      "C-z" 'evil-undefine
+      "SPC" 'evil-toggle-fold
+      "K"   'get-documentation)
 
-    (after "man"
+    (define-key evil-insert-state-map (kbd "C-z") 'evil-undefine)
+    (define-key evil-emacs-state-map  (kbd "M-z") 'evil-normal-state)
+    (define-key evil-visual-state-map (kbd "C-z") 'evil-undefine)
+
+    (after 'man
       (evil-declare-key 'normal Man-mode-map (kbd "q") 'Man-kill))
 
-    (after "org"
-      (evil-define-key 'normal org-mode-map (kbd "SPC")
-        'org-cycle)
-      (evil-define-key 'normal org-mode-map (kbd "z m")
-        (command (org-global-cycle 1)))
-      (evil-define-key 'normal org-mode-map (kbd "z r")
-        (command (org-global-cycle 0))))
-
-    (after "tar-mode"
+    (after 'tar-mode
       (evil-add-hjkl-bindings tar-mode-map))
 
-    (after "arc-mode"
+    (after 'arc-mode
       (evil-add-hjkl-bindings archive-mode-map))
 
-    (after "undo-tree"
+    (after 'message
+      (hook-fn 'message-mode-hook (evil-append-line 1)))
+
+    (after 'undo-tree
       ;; Ensure undo-tree commands are remapped. The referenced keymap in
       ;; evil-integration is incorrect.
-      (define-key undo-tree-visualizer-mode-map [remap evil-backward-char]
-        'undo-tree-visualize-switch-branch-left)
-      (define-key undo-tree-visualizer-mode-map [remap evil-forward-char]
-        'undo-tree-visualize-switch-branch-right)
-      (define-key undo-tree-visualizer-mode-map [remap evil-next-line]
-        'undo-tree-visualize-redo)
-      (define-key undo-tree-visualizer-mode-map [remap evil-previous-line]
-        'undo-tree-visualize-undo))
+      (define-keys undo-tree-visualizer-mode-map
+        [remap evil-backward-char] 'undo-tree-visualize-switch-branch-left
+        [remap evil-forward-char]  'undo-tree-visualize-switch-branch-right
+        [remap evil-next-line]     'undo-tree-visualize-redo
+        [remap evil-previous-line] 'undo-tree-visualize-undo))
 
     (evil-global-set-key 'insert (kbd "S-TAB") 'tab-to-tab-stop)
 
@@ -173,13 +177,14 @@
    evil-numbers/inc-at-pt)
   :init
   (after 'evil
-    (define-key evil-normal-state-map (kbd "C--") 'evil-numbers/dec-at-pt)
-    (define-key evil-normal-state-map (kbd "C-=") 'evil-numbers/inc-at-pt)))
+    (define-keys evil-normal-state-map
+      "C--" 'evil-numbers/dec-at-pt
+      "C-=" 'evil-numbers/inc-at-pt)))
 
-(provide 'cb-vim)
+(provide 'cb-evil)
 
 ;; Local Variables:
 ;; lexical-binding: t
 ;; End:
 
-;;; cb-vim.el ends here
+;;; cb-evil.el ends here

@@ -29,6 +29,53 @@
 (require 'use-package)
 (require 'dash)
 (require 'cb-lib)
+(require 's)
+
+(after 'evil
+  (evil-global-set-key 'normal "(" 'sp-backward-up-sexp)
+  (evil-global-set-key 'normal ")" 'sp-forward-sexp)
+
+  ;; Define a special state for smartparens operations.
+
+  (evil-define-state paren "Paren editing state."
+    :tag "<Paren> "
+    :message "-- PAREN --"
+    :cursor (bar . 2))
+
+  (hook-fn 'evil-paren-state-entry-hook
+    (when (equal last-command 'evil-end-of-line)
+      (forward-char)))
+
+  ;; Configure entry and exit from paren state.
+  (evil-global-set-key 'normal (kbd ",") 'evil-paren-state)
+  (define-key evil-paren-state-map (kbd "ESC") 'evil-normal-state)
+  (define-key evil-paren-state-map (kbd "C-g") 'evil-normal-state)
+  ;; Define paren state keys.
+  (evil-global-set-keys 'paren
+    "A" 'sp-add-to-previous-sexp
+    "a" 'sp-add-to-next-sexp
+    "B" 'sp-backward-barf-sexp
+    "b" 'sp-forward-barf-sexp
+    "c" 'sp-convolute-sexp
+    "D" 'sp-backward-kill-sexp
+    "d" 'sp-kill-sexp
+    "e" 'sp-emit-sexp
+    "j" 'sp-join-sexp
+    "K" 'sp-splice-sexp-killing-backward
+    "k" 'sp-splice-sexp-killing-forward
+    "n" 'sp-next-sexp
+    "p" 'sp-previous-sexp
+    "r" 'sp-raise-sexp
+    "s" 'sp-splice-sexp-killing-around
+    "t" 'sp-transpose-sexp
+    "U" 'sp-backward-unwrap-sexp
+    "u" 'sp-unwrap-sexp
+    "w" 'sp-rewrap-sexp
+    "x" 'sp-split-sexp
+    "Y" 'sp-backward-copy-sexp
+    "y" 'sp-copy-sexp
+    "<" 'sp-beginning-of-sexp
+    "," 'sp-end-of-sexp))
 
 (use-package smartparens
   :ensure t
@@ -38,7 +85,7 @@
     (show-smartparens-global-mode +1)
     (require 'smartparens-config)
 
-    (defun sp-generic-leading-space (id action ctx)
+    (defun sp-generic-leading-space (&optional id action ctx)
       "Pad ID with a leading space unless point is either:
 1. at the start of a braced expression
 2. at indentation."
@@ -58,56 +105,54 @@
       (if (or (emr-looking-at-string?)
               (emr-looking-at-comment?))
           (insert delim)
-        (sp-up-sexp arg)))
+        ;; HACK: use internal calling convention for `sp-up-sexp'. This is
+        ;; needed for some functionality, e.g. re-indentation, to behave
+        ;; correctly.
+        (sp-up-sexp arg 'interactive)))
+
+    (setq sp-autoinsert-if-followed-by-word t)
 
     ;; Close paren keys move up sexp.
     (setq sp-navigate-close-if-unbalanced t)
     (--each '(")" "]" "}")
-      (global-set-key (kbd it) (command (sp-insert-or-up it _arg))))
+      (global-set-key (kbd it) (eval `(command (sp-insert-or-up ,it _arg)))))
 
-    (loop for (k f) in
-          `(
-            ("C-<backspace>" sp-backward-up-sexp)
 
-            ("DEL"
-             ;; delete unbalanced parens.
-             ,(command (sp-backward-delete-char (or _arg 1))))
+    ;; Bind Paredit-style wrapping commands.
+    (sp-pair "(" ")" :bind "M-(")
+    (sp-pair "{" "}" :bind "M-{")
+    (sp-pair "[" "]" :bind "M-[")
+    (sp-pair "\"" "\"" :bind "M-\"")
+    (sp-pair "`" "`" :bind "M-~")
+    (sp-pair "'" "'"
+             :bind "M-'"
+             :when '(:add sp-in-code-p)
+             :unless '(:add sp-in-string-p))
 
-            ("C-k"
-             ;; kill blank lines or balanced sexps.
-             ,(command (if (emr-blank-line?)
-                           (kill-whole-line)
-                         (sp-kill-sexp))))
+    ;; Do not use apostrophe pair in text modes.
+    (sp-with-modes '(text-mode
+                     message-mode
+                     org-mode
+                     markdown-mode
+                     magit-log-edit-mode)
+      (sp-local-pair "'" "'" :actions '(:rem insert)))
 
-            ;; Still use Paredit wrap commands.
-            ("M-{"  paredit-wrap-curly)
-            ("M-["  paredit-wrap-square)
-            ("M-("  paredit-wrap-round)
+    (defun cb-sp:kill-blank-lines (&optional arg)
+      (interactive "P")
+      (cond
+       ((emr-blank-line?)
+        (kill-whole-line))
+       (t
+        (sp-kill-sexp nil arg))))
 
-            ;; General prefix commands.
+    (define-keys sp-keymap
+      "C-<backspace>" 'sp-backward-up-sexp
+      "DEL"           'sp-backward-delete-char
+      "C-k"           'cb-sp:kill-blank-lines)
 
-            ("C-x p a"      sp-absorb-sexp)
-            ("C-x p b b"    sp-backward-barf-sexp)
-            ("C-x p b f"    sp-forward-barf-sexp)
-            ("C-x p c"      sp-convolute-sexp)
-            ("C-x p e"      sp-emit-sexp)
-            ("C-x p j"      sp-join-sexp)
-            ("C-x p r"      sp-raise-sexp)
-            ("C-x p s b"    sp-backward-slurp-sexp)
-            ("C-x p s f"    sp-forward-slurp-sexp)
-            ("C-x p s k a"  sp-splice-sexp-killing-around)
-            ("C-x p s k b"  sp-splice-sexp-killing-backward)
-            ("C-x p s k f"  sp-splice-sexp-killing-forward)
-            ("C-x p s k k"  sp-splice-sexp-killing-backward)
-            ("C-x p s s"    sp-splice-sexp)
-            ("C-x p t"      sp-transpose-sexp)
-            ("C-x p u b"    sp-backward-unwrap-sexp)
-            ("C-x p u f"    sp-unwrap-sexp)
-            ("C-x p u u"    sp-unwrap-sexp)
-            ("C-x p x"      sp-split-sexp)
-            ("C-x p y"      sp-copy-sexp)
-            )
-          do (define-key sp-keymap (kbd k) f))))
+    ;; Use bind-key for keys that tend to be overridden.
+    (bind-key "C-M-," 'sp-backward-down-sexp sp-keymap)
+    (bind-key "C-M-." 'sp-next-sexp sp-keymap)))
 
 (provide 'cb-smartparens)
 

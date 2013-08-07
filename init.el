@@ -28,6 +28,11 @@
 (message "Emacs %s.%s %s"
          emacs-major-version emacs-minor-version system-configuration)
 
+
+(defvar cb:use-vim-keybindings? t
+  "Set to nil to disable Evil-mode and associated key bindings.")
+
+
 ;;; Disable intrusive GUI elements.
 
 (scroll-bar-mode   -1)
@@ -35,76 +40,88 @@
 (blink-cursor-mode -1)
 (menu-bar-mode (if (display-graphic-p) +1 -1))
 
-(defvar cb:use-vim-keybindings? t
-  "Set to nil to disable Evil-mode and associated key bindings.")
+;; Increase GC threshold. Computers have lots of memory these days.
+(setq gc-cons-threshold 20000000)
+
+(require 'package)
+(require 'cl)
+(require 'cl-lib)
 
 ;;;; Basic paths.
 
 (setq user-emacs-directory (expand-file-name user-emacs-directory))
-(defvar user-home-directory (format "%s/" (getenv "HOME")))
-(defvar user-dropbox-directory (concat user-home-directory "Dropbox/"))
-(add-to-list 'load-path user-dropbox-directory)
+(add-to-list 'load-path (concat (getenv "HOME") "/Dropbox/"))
 (add-to-list 'load-path (concat user-emacs-directory "lisp"))
-(setq-default default-directory user-home-directory)
+
+;; As a special case, ensure we're using the latest version of org-mode and not
+;; the version shipped with Emacs.
+(let ((org-src  (concat user-emacs-directory "etc/org-mode/lisp"))
+      (default-directory user-emacs-directory))
+  (unless (file-exists-p org-src)
+    (async-shell-command "make org" "*make org*"))
+  (add-to-list 'load-path org-src))
 
 ;;; Configure packages.
 
-(require 'package)
-(require 'cl-lib)
+(loop for source in
+      '(("melpa"     . "http://melpa.milkbox.net/packages/")
+        ("marmalade" . "http://marmalade-repo.org/packages/"))
+      do (add-to-list 'package-archives source)
+      finally (package-initialize))
 
-(cl-loop for source in
-         '(("melpa"     . "http://melpa.milkbox.net/packages/")
-           ("marmalade" . "http://marmalade-repo.org/packages/"))
-         do (add-to-list 'package-archives source)
-         finally (package-initialize))
-
-(cl-loop for pkg in '(bind-key use-package diminish s dash cl-lib noflet)
-         initially (unless package-archive-contents (package-refresh-contents))
-         unless (package-installed-p pkg)
-         do (package-install pkg))
+(loop for pkg in '(bind-key use-package diminish dash s f noflet async)
+      initially (unless package-archive-contents (package-refresh-contents))
+      unless (package-installed-p pkg)
+      do (package-install pkg))
 
 (require 'use-package)
 (setq use-package-verbose nil)
 
-(use-package cb-lib)
-(use-package personal-config)
-(use-package cb-foundation)
-(use-package cb-mode-groups)
-(use-package cb-vim :if cb:use-vim-keybindings?)
-(use-package cb-typefaces)
-(use-package cb-modeline)
-(use-package cb-osx :if (equal system-type 'darwin))
-(use-package cb-helm)
-(use-package cb-ido)
-(use-package cb-commands)
-(use-package cb-window-management)
-(use-package cb-backups)
-(use-package cb-cosmetic)
-(use-package cb-colour :if (or (daemonp) (display-graphic-p)))
-(use-package cb-smartparens)
-(use-package cb-web)
-(use-package cb-shell)
-(use-package cb-completion)
-(use-package cb-dired)
-(use-package cb-compilation)
-(use-package cb-ctags)
-(use-package cb-language-utils)
-(use-package cb-markup)
-(use-package cb-lisp)
-(use-package cb-elisp)
-(use-package cb-clojure)
-(use-package cb-overtone)
-(use-package cb-scheme)
-(use-package cb-python)
-(use-package cb-ruby)
-(use-package cb-haskell)
-(use-package cb-clang)
-(use-package cb-supercollider)
-(use-package cb-asm)
-(use-package cb-misc-languages)
-(use-package cb-git)
-(use-package cb-org)
-(use-package cb-productivity)
-(use-package cb-fortune)
+(require 'cb-lib)
+(require 'cb-foundation)
+(require 'personal-config)
+(require 'cb-mode-groups)
+(if cb:use-vim-keybindings?  (require 'cb-evil))
+(require 'cb-typefaces)
+(require 'cb-modeline)
+(if (equal system-type 'darwin) (require 'cb-osx))
+(require 'cb-helm)
+(require 'cb-ido)
+(require 'cb-commands)
+(require 'cb-window-management)
+(require 'cb-backups)
+(require 'cb-cosmetic)
+(if (or (daemonp) (display-graphic-p)) (require 'cb-colour))
+(require 'cb-smartparens)
+(require 'cb-web)
+(require 'cb-gnus)
+(require 'cb-shell)
+(require 'cb-yasnippet)
+(require 'cb-autocomplete)
+(require 'cb-dired)
+(require 'cb-compilation)
+(require 'cb-ctags)
+(require 'cb-language-utils)
+(require 'cb-markup)
+(require 'cb-lisp)
+(require 'cb-elisp)
+(require 'cb-clojure)
+(require 'cb-overtone)
+(require 'cb-scheme)
+(require 'cb-python)
+(require 'cb-ruby)
+(require 'cb-haskell)
+(require 'cb-clang)
+(require 'cb-supercollider)
+(require 'cb-asm)
+(require 'cb-misc-languages)
+(require 'cb-git)
+(require 'cb-org)
+(require 'cb-productivity)
+(require 'cb-fortune)
+
+;; Local Variables:
+;; byte-compile-warnings: (not cl-functions)
+;; End:
 
 ;;; init.el ends here

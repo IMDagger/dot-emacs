@@ -205,6 +205,8 @@
   "Face for the warning when point is past column 80."
   :group 'modeline)
 
+(defvar modeline-mail-indicator nil)
+
 (setq-default
  mode-line-format
  `(
@@ -261,7 +263,7 @@
    "%] "
 
    ;; ERT status.
-   (:eval (when (cb:truthy? 'ert-modeline-mode)
+   (:eval (when (true? ert-modeline-mode)
             (set-face-bold 'ertml-failing-face t)
             (let ((s (s-trim ertml--status-text)))
               (if (s-matches? (rx digit) s)
@@ -273,6 +275,11 @@
                       'face 'mode-line-minor-mode))
    (:propertize mode-line-process
                 face mode-line-process)
+   " "
+   (:eval (or (ignore-errors
+                (propertize modeline-mail-indicator 'face 'mode-line-emphasis))
+              ""))
+   " "
    (global-mode-string global-mode-string)))
 
 

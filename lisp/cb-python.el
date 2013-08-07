@@ -51,8 +51,7 @@
 
 (after 'smartparens
   (sp-with-modes cb:python-modes
-    (sp-local-pair "{" "}" :post-handlers '(:add sp-generic-leading-space))
-    (sp-local-pair "[" "]" :post-handlers '(:add sp-generic-leading-space))))
+    (sp-local-pair "{" "}" :post-handlers '(:add sp-generic-leading-space))))
 
 (use-package python
   :ensure   t
@@ -110,6 +109,7 @@
                               (next-window))))
           (set-window-buffer win buf)
           (select-window win)
+          (goto-char (point-max))
           (when (fboundp 'evil-append-line)
             (evil-append-line 1)))))
 
@@ -122,11 +122,14 @@
        (t
         (python-shell-send-defun arg))))
 
-    (define-key python-mode-map (kbd ",") 'cb:comma-then-space)
-    (define-key python-mode-map (kbd "C-c C-z") 'cb:switch-to-python)
-    (define-key python-mode-map (kbd "C-c C-c") 'cb-py:eval-dwim)
-    (define-key inferior-python-mode-map (kbd ",") 'cb:comma-then-space)
-    (define-key inferior-python-mode-map (kbd "C-c C-z") 'cb:switch-to-python)))
+    (define-keys python-mode-map
+      "," 'cb:comma-then-space
+      "C-c C-z" 'cb:switch-to-python
+      "C-c C-c" 'cb-py:eval-dwim)
+
+    (define-keys inferior-python-mode-map
+      "," 'cb:comma-then-space
+      "C-c C-z" 'cb:switch-to-python)))
 
 (use-package jedi
   :ensure   t

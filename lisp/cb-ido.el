@@ -70,13 +70,14 @@
    ido-completing-read)
   :init
   (progn
-    (bind-key "C-x C-f" 'ido-find-file)
-    (bind-key "C-x d"   'ido-dired)
-    (bind-key "C-x i"   'ido-insert-file)
-    (bind-key "C-x C-w" 'ido-write-file)
-    (bind-key "C-x k"   'ido-kill-buffer)
-    (bind-key "C-x b"   'ido-switch-buffer)
-    (bind-key* "M-I"    (command (ido-find-file-in-dir cb:lisp-dir))))
+    (bind-key* "M-I" (command (ido-find-file-in-dir cb:lisp-dir)))
+    (bind-keys
+      "C-x C-f" 'ido-find-file
+      "C-x d"   'ido-dired
+      "C-x i"   'ido-insert-file
+      "C-x C-w" 'ido-write-file
+      "C-x k"   'ido-kill-buffer
+      "C-x b"   'ido-switch-buffer))
   :config
   (progn
     (setq
@@ -128,18 +129,22 @@
     (ido-ubiquitous-mode +1)))
 
 (use-package ido-yes-or-no
+  :disabled t
   :ensure t
   :commands ido-yes-or-no-mode
   :init (after 'ido (ido-yes-or-no-mode +1)))
 
-(use-package ido-better-flex
+(use-package flx
   :ensure t
-  :commands ido-better-flex/enable
-  :init (after 'ido (ido-better-flex/enable)))
+  :defer t)
 
-(use-package ido-speed-hack
-  :defer t
-  :init (after 'ido (require 'ido-speed-hack)))
+(use-package flx-ido
+  :ensure t
+  :config
+  (after 'ido
+    (flx-ido-mode +1)
+    ;; Override ido faces with flx ones.
+    (setq ido-use-faces nil)))
 
 (use-package imenu
   :commands imenu
@@ -149,21 +154,9 @@
     (setq imenu-prev-index-position-function nil)
     (add-to-list 'imenu-generic-expression
                  `("SECTION"
-                   ;; Match sections.
-                   ,(rx bol ";;;;" (+ space) (group (+ nonl )))
+                   ;; Match sections with at least 3 semicolons
+                   ,(rx bol (* space) ";;;" (* ";") (+ space) (group (+ nonl )))
                    1) t)))
-
-(use-package smex
-  :ensure t
-  :idle   (require 'smex)
-  :commands
-  (smex
-   smex-major-mode-commands)
-  :init
-  (progn
-    (bind-key* "M-X" 'smex-major-mode-commands)
-    (bind-key* "M-x" 'smex))
-  :config (smex-initialize))
 
 (provide 'cb-ido)
 

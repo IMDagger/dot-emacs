@@ -28,6 +28,7 @@
 
 (require 'dash)
 (require 'use-package)
+(require 'cb-lib)
 
 (autoload 'projectile-project-p "projectile")
 (autoload 'projectile-project-root "projectile")
@@ -91,22 +92,24 @@
 
 (use-package flyspell
   :diminish flyspell-mode
-  :defer    t
-  :init
-  (progn
-
-    (setq ispell-dictionary "en_GB")
-
-    (add-hook 'text-mode-hook 'flyspell-mode)
-    (hook-fn 'cb:xml-modes-hook
-      (unless (derived-mode-p 'markdown-mode)
-        (flyspell-prog-mode)))
-    (add-hook 'prog-mode-hook 'flyspell-prog-mode))
+  :init (unless noninteractive (require 'flyspell))
   :config
   (progn
-    (bind-key* "C-'" 'flyspell-auto-correct-word)
+
     (define-key flyspell-mouse-map [down-mouse-3] 'flyspell-correct-word)
-    (define-key flyspell-mouse-map [mouse-3] 'undefined)))
+    (define-key flyspell-mouse-map [mouse-3] 'undefined)
+    (bind-key* "C-'" 'flyspell-auto-correct-word)
+
+    (setq ispell-program-name "aspell"
+          ispell-dictionary "en_GB")
+
+    (hook-fn 'after-init-hook
+      "Enable flyspell after Emacs has started up."
+      (add-hook 'text-mode-hook 'flyspell-mode)
+      (add-hook 'prog-mode-hook 'flyspell-prog-mode)
+      (hook-fn 'cb:xml-modes-hook
+        (unless (derived-mode-p 'markdown-mode)
+          (flyspell-prog-mode))))))
 
 (use-package flyspell-lazy
   :ensure  t
@@ -118,8 +121,8 @@
   :commands
   (flycheck-mode flycheck-mode-on-safe)
   :init
-  (--each '(prog-mode-hook text-mode-hook)
-    (hook-fn it (flycheck-mode-on-safe)))
+  (hook-fns '(prog-mode-hook text-mode-hook)
+    (flycheck-mode-on-safe))
 
   :config
   (defadvice flycheck-buffer (around dont-throw-in-ido-for-fuck-sake activate)
