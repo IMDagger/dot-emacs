@@ -1,0 +1,5 @@
+# key: let
+# name: let (top-level)
+# condition: (cbyas:bol?)
+# --
+let ${1:binding} = $0

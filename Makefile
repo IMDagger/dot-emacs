@@ -16,12 +16,14 @@ emacs_version = $(shell $(emacs) -Q --batch --exec \
 # ----------------------------------------------------------------------------
 
 .PHONY: default
-default : $(modules) conf tags $(emacs_src)
+default : $(modules) tags $(emacs_src)
 
 .PHONY: all
-all : $(modules) compile tags \
-	  ruby supercollider python clang scheme haskell \
-	  $(emacs_src)
+all : $(modules) $(emacs_src) tags \
+	  ruby supercollider python clang haskell \
+
+.PHONY: src
+src : $(emacs_src)
 
 .PHONY: tags
 tags :
@@ -35,18 +37,6 @@ $(tmp) :; mkdir $(tmp)
 
 $(modules) :
 	git submodule update --init
-
-# ----------------------------------------------------------------------------
-# Byte-compilation
-
-# Byte-compile files in ./lisp
-.PHONY: conf
-conf :
-	$(emacs_exec) byte-compile-conf
-
-# Byte-compile all elisp files.
-.PHONY: compile
-compile : conf tags
 
 # ----------------------------------------------------------------------------
 # Cleaning
@@ -98,7 +88,7 @@ $(emacs_src) :| $(emacs_gz)
 # Python
 
 .PHONY: python
-python : jedi elpy
+python : jedi elpy pylint
 
 .PHONY: jedi
 jedi :
@@ -107,6 +97,10 @@ jedi :
 .PHONY: elpy
 elpy :
 	pip install elpy rope pyflakes pep8
+
+.PHONY: pylint
+pylint :
+	pip install pylint
 
 # ----------------------------------------------------------------------------
 # SuperCollider
@@ -134,11 +128,15 @@ rsense_url = http://cx4a.org/pub/rsense/rsense-$(rsense_version).tar.bz2
 rsense_bz  = $(bin)/rsense-$(rsense_version).tar.bz2
 
 .PHONY: ruby
-ruby : $(rsense) rubocop
+ruby : $(rsense) rubocop growl
 
 .PHONY: rubocop
 rubocop :
-	sudo gem install rubocop
+	gem install rubocop
+
+.PHONY: growl
+growl :
+	[[ `uname` == 'Darwin' ]] && gem install ruby_gntp
 
 # RSense
 
@@ -157,39 +155,6 @@ clang :
 
 # ----------------------------------------------------------------------------
 
-r5rs_html     = $(etc)/r5rs-html
-r5rs_gz       = $(tmp)/r5rs-html.tar.gz
-r5rs_url      = http://www.schemers.org/Documents/Standards/R5RS/r5rs-html.tar.gz
-
-r6rs_html     = $(etc)/r6rs-html
-r6rs_gz       = $(tmp)/r6rs.tar.gz
-r6rs_url      = http://www.r6rs.org/final/r6rs.tar.gz
-
-.PHONY: scheme
-scheme : $(r5rs_html) $(r6rs_html) $(scm_init)
-
-# Download Scheme documentation.
-
-## R5RS
-
-$(r5rs_html) :| $(r5rs_gz) $(etc)
-	tar xfzv $(r5rs_gz) --directory=$(tmp)
-	mv $(tmp)/html $(r5rs_html)
-
-$(r5rs_gz) :| $(tmp)
-	curl $(r5rs_url) -o $(r5rs_gz)
-
-## R6RS
-
-$(r6rs_html) :| $(r6rs_gz) $(etc)
-	tar xfzv $(r6rs_gz) --directory=$(tmp)
-	mv $(tmp)/r6rs/html $(r6rs_html)
-
-$(r6rs_gz) :| $(tmp)
-	curl $(r6rs_url) -o $(r6rs_gz)
-
-# ----------------------------------------------------------------------------
-
 scion_url    = https://github.com/nominolo/scion.git
 scion_dest   = $(tmp)/scion
 scion_server = ~/.cabal/bin/scion-server
@@ -200,24 +165,3 @@ haskell : $(scion_server)
 $(scion_server) :
 	git clone $(scion_url) $(scion_dest)
 	cd $(scion_dest) && cabal install
-
-# ----------------------------------------------------------------------------
-
-org_url  = http://orgmode.org/org-latest.tar.gz
-org_gz   = $(tmp)/org-latest.tar.gz
-org_src = $(etc)/org-mode
-
-.PHONY: org
-org : $(org_src)
-
-.PHONY: clean_org
-clean_org :
-	rm -fr $(org_src)
-	rm -fr $(org_gz)
-
-$(org_gz)  :| $(tmp)
-	curl $(org_url) -o $(org_gz)
-
-$(org_src) :| $(org_gz)
-	tar xvfz $(org_gz) --directory=$(etc)
-	cd $(org_src) && make

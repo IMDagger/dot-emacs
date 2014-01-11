@@ -1,8 +1,15 @@
+--ignore-dir=.cask
 --ignore-dir=auto-save-list
 --ignore-dir=backups
 --ignore-dir=bin
+--ignore-dir=el-get
 --ignore-dir=elpa
 --ignore-dir=etc
 --ignore-dir=lib
 --ignore-dir=src
 --ignore-dir=tmp
+--ignore-dir=info
+--ignore-dir=eshell
+--ignore-dir=scripts/*
+--ignore-file=match:flycheck-
+--ignore-file=match:config.el

@@ -1,24 +1,42 @@
 [submodule "lib/emacs-refactor"]
     path = lib/emacs-refactor
     url = git://github.com/chrisbarrett/emacs-refactor.git
-[submodule "lib/ert-modeline"]
-    path = lib/ert-modeline
-    url = git://github.com/chrisbarrett/ert-modeline.git
 [submodule "lib/ido-speed-hack"]
     path = lib/ido-speed-hack
     url = git://github.com/orfelyus/ido-speed-hack.git
-[submodule "lib/sclang-extensions"]
-    path = lib/sclang-extensions
-    url = git://github.com/chrisbarrett/sclang-extensions.git
 [submodule "lib/info-lookmore"]
     path = lib/info-lookmore
     url = git://github.com/emacsmirror/info-lookmore.git
 [submodule "lib/clang-complete-async"]
     path = lib/clang-complete-async
     url = git://github.com/Golevka/emacs-clang-complete-async.git
-[submodule "lib/bbdb-vcard"]
-    path = lib/bbdb-vcard
-    url = git://github.com/tohojo/bbdb-vcard.git
 [submodule "lib/slime"]
     path = lib/slime
     url = git://github.com/nablaone/slime.git
+[submodule "lib/osx-bbdb"]
+	path = lib/osx-bbdb
+	url = git@github.com:chrisbarrett/osx-bbdb.git
+[submodule "lib/whizzytex"]
+	path = lib/whizzytex
+	url = https://github.com/emacsmirror/whizzytex.git
+[submodule "lib/org-pomodoro"]
+	path = lib/org-pomodoro
+	url = git@github.com:chrisbarrett/org-pomodoro.git
+[submodule "lib/helm-dictionary"]
+	path = lib/helm-dictionary
+	url = git://github.com/chrisbarrett/helm-dictionary.git
+[submodule "lib/reveal.js"]
+	path = lib/reveal.js
+	url = https://github.com/hakimel/reveal.js.git
+[submodule "lib/agda-mode"]
+	path = lib/agda-mode
+	url = https://github.com/jwiegley/agda-mode.git
+[submodule "lib/skeletor.el"]
+	path = lib/skeletor.el
+	url = git@github.com:chrisbarrett/skeletor.el.git
+[submodule "lib/git-gutter-fringe-plus"]
+	path = lib/git-gutter-fringe-plus
+	url = https://github.com/nonsequitur/git-gutter-fringe-plus.git
+[submodule "lib/merlin"]
+	path = lib/merlin
+	url = https://github.com/the-lambda-church/merlin.git
