@@ -17,7 +17,9 @@ to generate the elisp file that will actually be loaded by Emacs.
 (defvar cb:use-visual-bell? t
   "Set to nil when any type of bell is annoying fo you.")
 (defvar cb:aggressive-kill? t
-  "It tries to kill whole line if it's empty after previous kill")
+  "It tries to kill whole line if it's empty after previous kill.")
+(defvar cb:default-font-size 15
+  "I prefer large letters due to poor my eyesight.")
 #+end_src
 
 * Remove all GUI elements except the mode line
@@ -2534,12 +2536,12 @@ this system.
 ** Set default font
 *** Manually set the default font
 #+begin_src emacs-lisp
-(set-frame-font (format "%s 11" (monospace-font)) t)
+(set-frame-font (format "%s %s" (monospace-font) cb:default-font-size) t)
 #+end_src
 *** Ensure that any further frames use this font too
 #+begin_src emacs-lisp
 (hook-fn 'after-make-frame-functions
-  (set-frame-font (format "%s 11" (monospace-font)) t
+  (set-frame-font (format "%s %s" (monospace-font) cb:default-font-size) t
                   (list (car (frame-list)))))
 #+end_src
 * Colours and themes
