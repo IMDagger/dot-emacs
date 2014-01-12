@@ -1,0 +1,5 @@
+# key: v
+# name: val
+# condition: (cbyas:bol?)
+# --
+val ${1:ident} : $0

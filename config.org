@@ -3432,7 +3432,6 @@ Provides textmate-style snippets.
   (yas-reload-all))
 #+end_src
 ** Define a command picker for yasnippet actions
-*** Impl
 #+begin_src emacs-lisp
 (define-command-picker yasnippet-picker
   :title "*Yasnippet Commands*"
@@ -3442,10 +3441,9 @@ Provides textmate-style snippets.
     ("i" "Insert" yas-insert-snippet)
     ("n" "New" yas-new-snippet)
     ("r" "Reload All" cbyas:reload-all)
+    ("q" "Exit Snippets" yas-exit-all-snippets)
     ("t" "Show Tables" yas-describe-tables)))
-#+end_src
-*** Key binding
-#+begin_src emacs-lisp
+
 (bind-key* "C-c y" 'yasnippet-picker)
 #+end_src
 ** Snippet utilities
@@ -11595,16 +11593,16 @@ utop is an improved toplevel for OCaml. It can run in a terminal or in Emacs.
 #+end_src
 ** Configure Merlin
 #+begin_src emacs-lisp
-(autoload 'merlin-mode "merlin" nil t)
-(add-hook 'tuareg-mode-hook 'merlin-mode)
+(after 'tuareg
+  (cb:install-package 'merlin t)
+  (add-hook 'tuareg-mode-hook 'merlin-mode)
 
-(after 'merlin
   (setq merlin-use-auto-complete-mode t)
+  (setq merlin-default-flags "-w @A-4-33-41-42-43-34-44")
 
   (add-to-list 'face-remapping-alist '(merlin-type-face . intense-flash))
 
-  (define-key merlin-mode-map (kbd "M-N") 'merlin-error-next)
-  (define-key merlin-mode-map (kbd "M-P") 'previous-error))
+  (define-key merlin-mode-map (kbd "M-N") 'merlin-error-next))
 #+end_src
 ** configure utilities for yasnippet
 #+begin_src emacs-lisp
@@ -11706,7 +11704,7 @@ Pad parens and other delimiters with spaces to emulate paredit's behaviour.
 (defun cb-ocaml:smart-dot ()
   "Smart period for OCaml."
   (interactive)
-  (delete-horizontal-space)
+  (delete-horizontal-space 'back)
   (insert ".")
   (when (thing-at-point-looking-at (rx (any "+" "/" "-" "*") "."))
     (just-one-space)))
@@ -11721,14 +11719,14 @@ Pad parens and other delimiters with spaces to emulate paredit's behaviour.
 (defun cb-ocaml:smart-semicolon ()
   "Smart semicolon for OCaml."
   (interactive)
-  (delete-horizontal-space)
+  (delete-horizontal-space 'back)
   (insert ";")
   (unless (thing-at-point-looking-at ";;")
     (just-one-space)))
 
 (defun cb-ocaml:smart-insert-operator (op)
   "Perform a smart insertion of operator OP, unless inside parens."
-  (if (thing-at-point-looking-at (rx (any "(" ")")))
+  (if (thing-at-point-looking-at (rx "("))
       (insert op)
     (smart-insert-operator op)))
 
@@ -11783,20 +11781,17 @@ where they should not be padded."
   (indent-to col)
   (goto-char (line-end-position)))
 
-(defun cb-ocaml:newline-insert-case ()
-  "Insert a case template below the current line."
-  (goto-char (line-end-position))
-  (newline-and-indent)
-  (forward-char -2)
-  (yas-insert-first-snippet (C (~ equal "match-case") yas--template-name)))
-
 (defun cb-ocaml:meta-ret ()
   "Open a new line in a context-sensitive way."
   (interactive)
+  (yas-exit-all-snippets)
   (cond
    ;; Insert case after match statement.
    ((s-matches? (rx symbol-start "match" symbol-end) (current-line))
-    (cb-ocaml:newline-insert-case))
+    (goto-char (line-end-position))
+    (newline-and-indent)
+    (yas-insert-first-snippet (C (~ equal "match-case") yas--template-name)))
+
    ;; Insert new case below the current type decl.
    ((s-matches? (rx bol (* space) "type") (current-line))
     (cb-ocaml:new-case-at-col
@@ -11804,9 +11799,14 @@ where they should not be padded."
        (goto-char (line-beginning-position))
        (forward-to-indentation 0)
        (+ 2 (current-column)))))
+
    ;; Insert match case below the current one.
    ((s-matches? (rx bol (* space) "|" (not (any ">")) (* nonl) "->") (current-line))
-    (cb-ocaml:newline-insert-case))
+    (goto-char (line-end-position))
+    (newline-and-indent)
+    (forward-char -2)
+    (yas-insert-first-snippet (C (~ equal "match-case") yas--template-name)))
+
    ;; Insert line starting with pipeline below the current one.
    ((s-matches? (rx bol (* space) "|>") (current-line))
     (let ((col (save-excursion
@@ -11818,6 +11818,7 @@ where they should not be padded."
       (save-excursion (insert "|> "))
       (indent-to col)
       (goto-char (line-end-position))))
+
    ;; Insert any other kind of case below the current one.
    ((s-matches? (rx bol (* space) "|") (current-line))
     (cb-ocaml:new-case-at-col
@@ -11825,6 +11826,42 @@ where they should not be padded."
        (goto-char (line-beginning-position))
        (search-forward "|")
        (1- (current-column)))))
+
+   ;; Insert new val binding below the current one.
+   ((s-matches? (rx bol (* space) "val" symbol-end) (current-line))
+    (goto-char (line-end-position))
+    (newline-and-indent)
+    (forward-char -2)
+    (yas-insert-first-snippet (C (~ equal "val") yas--template-name)))
+
+   ;; Insert new let...in binding below the current one.
+   ((s-matches? (rx bol (* space) (group "let") symbol-end (* nonl) "in" (* space) eol)
+                (current-line))
+    (let ((col (save-excursion
+                 (or (search-backward-regexp
+                      (rx symbol-start "let" symbol-end)
+                      (line-beginning-position) t)
+                     (goto-char (line-beginning-position)))
+                 (current-column))))
+      (goto-char (line-end-position))
+      (newline)
+      (indent-to col)
+      (yas-insert-first-snippet (C (~ equal "let...in") yas--template-name))))
+
+   ;; Insert new top-level let binding below the current one.
+   ((s-matches? (rx bol (* space) (group "let") symbol-end) (current-line))
+    (let ((col (save-excursion
+                 (or (search-backward-regexp
+                      (rx symbol-start "let" symbol-end)
+                      (line-beginning-position) t)
+                     (goto-char (line-beginning-position)))
+                 (current-column))))
+      (goto-char (line-end-position))
+      (newline)
+      (indent-to col)
+      (yas-insert-first-snippet
+       (C (~ equal "let (top-level)") yas--template-name))))
+
    (t
     (goto-char (line-end-position))
     (newline-and-indent)))
