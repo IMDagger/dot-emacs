@@ -8,9 +8,18 @@ to generate the elisp file that will actually be loaded by Emacs.
 
 * Define var to enable/disable vim keybindings
 #+begin_src emacs-lisp
-(defvar cb:use-vim-keybindings? t
+(defvar cb:use-vim-keybindings? nil
   "Set to nil to disable Evil-mode and associated key bindings.")
 #+end_src
+
+* Define vars to enable/disable some custom UI behavior
+#+begin_src emacs-lisp
+(defvar cb:use-visual-bell? t
+  "Set to nil when any type of bell is annoying fo you.")
+(defvar cb:aggressive-kill? t
+  "It tries to kill whole line if it's empty after previous kill")
+#+end_src
+
 * Remove all GUI elements except the mode line
 #+begin_src emacs-lisp
 (when (fboundp 'scroll-bar-mode)   (scroll-bar-mode -1))
@@ -889,8 +898,17 @@ prevents the app bundle from being used as the default dir.
     (setq default-directory user-home-directory)))
 #+end_src
 * Don't ring the bell on errors
+  I like visual response when something is not ok.
 #+begin_src emacs-lisp
-(setq ring-bell-function 'ignore)
+(if cb:use-visual-bell?
+  (setq visible-bell t)
+  (setq ring-bell-function 'ignore))
+#+end_src
+* Show a clock
+#+begin_src emacs-lisp
+(setq display-time-24hr-format t)
+(setq display-time-day-and-date t)
+(display-time)
 #+end_src
 * Don't show startup message
 #+begin_src emacs-lisp
@@ -1378,6 +1396,7 @@ crashes in Emacs 24.
 (set-keyboard-coding-system  'utf-8)
 (set-selection-coding-system 'utf-8)
 (prefer-coding-system        'utf-8)
+(setq-default default-input-method 'russian-computer)
 #+end_src
 * Keyboard macros
 ** Define a way to prompt for input in keyboard macros
@@ -1540,6 +1559,178 @@ Changes the selected buffer."
 
 (bind-key* "s-f" 'cb:rotate-buffers)
 #+end_src
+** Dedicated windows
+#+begin_src emacs-lisp
+;; Toggle window dedication
+(defun toggle-window-dedicated ()
+  "Toggle whether the current active window is dedicated or not"
+  (interactive)
+  (message
+   (if (let (window (get-buffer-window (current-buffer)))
+         (set-window-dedicated-p window
+                                 (not (window-dedicated-p window))))
+       "Window '%s' is dedicated"
+     "Window '%s' is normal")
+   (current-buffer)))
+
+(bind-key* "<pause>" 'toggle-window-dedicated)
+#+end_src
+** Enable tabs subsystem, show tabs for buffers
+#+begin_src emacs-lisp
+;; redefine tab labels, adding leading and trailing spaces for clarity
+(defun tabbar-buffer-tab-label (tab)
+  "Return a label for TAB. That is, a string used to represent it on the tab bar."
+  (let ((label  (if tabbar--buffer-show-groups
+                    (format " [%s] " (tabbar-tab-tabset tab))
+                  (format " %s " (tabbar-tab-value tab)))))
+    ;; Unless the tab bar auto scrolls to keep the selected tab
+    ;; visible, shorten the tab label to keep as many tabs as possible
+    ;; in the visible area of the tab bar.
+    (if tabbar-auto-scroll-flag
+        label
+      (tabbar-shorten
+       label (max 1 (/ (window-width)
+                       (length (tabbar-view
+                                (tabbar-current-tabset)))))))))
+
+;; function for closing a tab via context menu
+(defun tabbar-close-clicked-tab (event)
+  (interactive "@e")
+  (when (tabbar-click-p event)
+    (let* ((clicklocation (posn-string (event-start event)))
+       (clickedbuffer (car (get-text-property (cdr clicklocation)
+                          'tabbar-tab (car clicklocation)))))
+      (save-current-buffer
+    (progn (switch-to-buffer clickedbuffer)
+           (with-selected-window (selected-window)
+         (close-current-window-asktosave)))))))
+
+;; function for closing all other tabs via context menu
+;;**NOTE: doesn't properly ask permission to close each as needed
+(defun tabbar-close-other-tabs (event)
+  (interactive "@e")
+  (when (tabbar-click-p event)
+    (let* ((clicklocation (posn-string (event-start event)))
+       (clickedtab (get-text-property (cdr clicklocation)
+                      'tabbar-tab (car clicklocation)))
+       (tablist (tabbar-tabs (tabbar-current-tabset))))
+      (save-current-buffer
+    (dolist (thistab tablist (car clickedtab))
+      (unless (equal thistab clickedtab)
+        (switch-to-buffer (car thistab))
+        (close-current-window-asktosave)))))))
+
+;; function to open a new tab, suppressing new frame creation
+(defun tabbar-new-tab-with-new-scratch  ()
+  "Opens a new frame containing an empty buffer."
+  (interactive)
+  (let ((one-buffer-one-frame-inhibit t)
+    (buf (generate-new-buffer (mac-new-buffer-name "untitled"))))
+    (switch-to-buffer buf)
+    (setq buffer-offer-save t)
+    (set-buffer-modified-p nil)))
+
+;; keymap for tabbar context menu
+(defvar tabbar-context-menu-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [closeothers] (cons "Close Other Tabs" 'tabbar-close-other-tabs))
+    (define-key map [closetab] (cons "Close Tab" 'tabbar-close-clicked-tab))
+    (define-key map [newtab] (cons "New Tab" 'tabbar-new-tab-with-new-scratch))
+    map) "Keymap for the Tabbar context menu.")
+
+;; modify hints to give only the buffer name
+(defun tabbar-buffer-help-on-tab (tab)
+  "Return the help string shown when mouse is onto TAB."
+  (if tabbar--buffer-show-groups
+      (let* ((tabset (tabbar-tab-tabset tab))
+             (tab (tabbar-selected-tab tabset)))
+        (format "click: switch to buffer %S in group [%s]"
+                (buffer-name (tabbar-tab-value tab)) tabset))
+    (format "%s"
+            (buffer-name (tabbar-tab-value tab)))))
+
+;; provide new actions for middle-click/right-click on tabs
+(defun tabbar-buffer-select-tab (event tab &optional prefix)
+  "On mouse EVENT, select TAB."
+  (let ((mouse-button (event-basic-type event))
+              (one-buffer-one-frame-inhibit t)
+        (buffer (tabbar-tab-value tab)))
+    (cond
+     ((eq mouse-button 'mouse-3)
+      (popup-menu tabbar-context-menu-map event prefix))
+     (t
+      (switch-to-buffer buffer)))
+    ;; Don't show groups.
+    (tabbar-buffer-show-groups nil)))
+
+;; allow fast-clicking through lists of tabs
+(defsubst tabbar-click-p (event)
+  "Return non-nil if EVENT is a mouse click event."
+  ;;counts as a click even if it's the last of a double- or triple-click;
+  ;;allows fast cycling through tabs with the mouse.
+  (and (or
+    (memq 'click (event-modifiers event))
+    (memq 'double (event-modifiers event))
+    (memq 'triple (event-modifiers event)))
+       ;; don't count double- or triple-drag events
+       (not (memq 'drag (event-modifiers event)))))
+
+(after 'tabbar
+    (defun cb:tabbar-buffer-up ()
+      (interactive)
+      (other-window -1))
+    (defun cb:tabbar-buffer-down ()
+      (interactive)
+      (other-window 1))
+    (defun cb:tabbar-kill-buffer ()
+      (interactive)
+      (kill-buffer (current-buffer)))
+
+    ;; use images for tabbar buttons
+    (setq tabbar-home-button-enabled-image
+          '((:type png :file "home_sm.png")))
+
+    (setq tabbar-home-button-disabled-image
+          '((:type png :file "home_sm.png")))
+
+    (setq tabbar-home-button
+          (cons (cons "[o]" tabbar-home-button-enabled-image)
+                (cons "[x]" tabbar-home-button-disabled-image)))
+
+    (setq tabbar-buffer-home-button
+          (cons (cons "[+]" tabbar-home-button-enabled-image)
+                (cons "[-]" tabbar-home-button-disabled-image)))
+
+    (setq tabbar-scroll-left-button-enabled-image
+          '((:type png :file "back_sm.png")))
+
+    (setq tabbar-scroll-left-button
+          (cons (cons " <" tabbar-scroll-left-button-enabled-image)
+                (cons " =" nil)))
+
+    (setq tabbar-scroll-right-button-enabled-image
+          '((:type png :file "forward_sm.png")))
+
+    (setq tabbar-scroll-right-button
+          (cons (cons " >" tabbar-scroll-right-button-enabled-image)
+                (cons " =" nil)))
+
+    (bind-key* "S-<left>" 'tabbar-backward-tab)
+    (bind-key* "S-<right>" 'tabbar-forward-tab)
+
+    (bind-key* "<f10>" 'cb:tabbar-kill-buffer)
+    (bind-key* "S-<up>" 'cb:tabbar-buffer-up)
+    (bind-key* "S-<down>" 'cb:tabbar-buffer-down)
+
+    ;; modify various settings:
+    ;; eliminate gap between header-line and toolbar
+    (setq tool-bar-border 0)
+
+    (setq tabbar-scroll-left-button nil)
+
+    (tabbar-mode +1))
+(cb:install-package 'tabbar t)
+#+end_src
 * Transpose lines
 ** Define commands to transpose lines
 #+begin_src emacs-lisp
@@ -1568,6 +1759,8 @@ Changes the selected buffer."
 #+begin_src emacs-lisp
 (bind-key* "C-<up>" 'move-line-up)
 (bind-key* "C-<down>" 'move-line-down)
+(bind-key* "M-;" 'indent-for-comment)
+(bind-key* "C-x C-b" 'electric-buffer-list)
 #+end_src
 * Version Control (VC)
 ** Do not prompt to follow symlinks
@@ -1577,13 +1770,14 @@ control.
 (setq vc-follow-symlinks t)
 #+end_src
 ** Use Git only
-Only enable Git by default, since all the projects I work on use Git these days.
+Only enable Git and Bazaar by default, since all the projects I work on use Git and Bzr these days.
 #+begin_src emacs-lisp
-(setq vc-handled-backends '(Git))
+(setq vc-handled-backends '(Git Bzr))
 #+end_src
 ** Autoload functions that are used throughout this config
 #+begin_src emacs-lisp
 (autoload 'vc-git-root "vc-git")
+(autoload 'vc-bzr-root "vc-git")
 #+end_src
 * Enable commands
 Enable commands that are disabled by default.
@@ -3627,7 +3821,7 @@ structured way.
     (kill-whole-line))
    (t
     (sp-kill-hybrid-sexp arg)
-    (when (is-current-blank?)
+    (when (and cb:aggressive-kill? (is-current-blank?))
       (kill-whole-line)))))
 
 (define-key sp-keymap (kbd "C-k") 'cb-sp:kill-blank-lines)
@@ -7895,6 +8089,7 @@ Set a key binding for the above command.
 #+end_src
 
 * SGML
+  Enable sgml-mode for HTML-pages or templates.
 #+begin_src emacs-lisp
 (setq-default sgml-xml-mode t)
 #+end_src
@@ -7902,6 +8097,21 @@ Set a key binding for the above command.
 #+begin_src emacs-lisp
 (after 'sgml-mode
   (define-key sgml-mode-map (kbd "M-q") 'tidy-xml-buffer))
+#+end_src
+** WEB mode hooks
+#+begin_src emacs-lisp
+(after 'sgml-mode
+  (hook-fn 'html-mode-hook
+    ;; Default indentation is usually 2 spaces, changing to 4.
+    (set (make-local-variable 'sgml-basic-offset) 4)
+    (cb:install-package 'web-mode t)
+    (web-mode)))
+(after 'web-mode
+  (hook-fn 'web-mode-hook
+    (setq web-mode-markup-indent-offset 4)
+    (setq web-mode-css-indent-offset 4)
+    (setq web-mode-code-indent-offset 4)
+    (setq web-mode-indent-style 4)))
 #+end_src
 * Markdown
 #+begin_src emacs-lisp
@@ -7964,6 +8174,7 @@ Define keys to move by headlines in normal state.
 ** Key bindings
 #+begin_src emacs-lisp
 (define-key c-mode-map (kbd "M-q") 'indent-dwim)
+(define-key c-mode-map (kbd "RET") 'newline-and-indent)
 #+end_src
 ** Insert headers
 #+begin_src emacs-lisp
@@ -8563,7 +8774,8 @@ Defines a command for going to the definition of the symbol at point.
 (after 'lisp-mode
   (define-key emacs-lisp-mode-map (kbd "C-c C-t") 'ert)
   (define-key emacs-lisp-mode-map (kbd "C-c C-l")
-    'emacs-lisp-byte-compile-and-load))
+    'emacs-lisp-byte-compile-and-load)))
+
 #+end_src
 ** IELM
 Customise newline key bindings.
@@ -9061,6 +9273,19 @@ under point, prompts for a var."
 (add-hook 'clojure-mode-hook 'global-overtone-mode)
 #+end_src
 * Scheme
+** rainbow paretheses
+#+begin_src emacs-lisp
+(after 'scheme
+  (cb:install-package 'rainbow-delimeters t))
+#+end_src
+
+Enable rainbow delimeters mode and key binding if it's necessary.
+#+begin_src emacs-lisp
+(after 'rainbow-delimeters
+  (fn-hook 'rainbow-delimeters-hook
+    (local-set-key (kbd "ESC ESC p") 'rainbow-delimiters-mode)
+    (rainbow-delimiters-mode)))
+#+end_src
 ** auto-complete
 *** Enable for all scheme modes
 #+begin_src emacs-lisp
@@ -11643,6 +11868,13 @@ where they should not be padded."
 * Mutt
 #+begin_src emacs-lisp
 (cb:install-package 'muttrc-mode)
+#+end_src
+* External viewers
+** Browsers
+   I use Firefox for browsing.
+#+begin_src emacs-lisp
+  (setq browse-url-generic-program (executable-find "firefox")
+      browse-url-browser-function 'browse-url-generic)
 #+end_src
 * Load personal config
 The personal config file may be used to store sensitive information such as
