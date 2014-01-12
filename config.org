@@ -3619,12 +3619,16 @@ structured way.
 ** Make sexp killing behaviour to be more like paredit's
 #+begin_src emacs-lisp
 (defun cb-sp:kill-blank-lines (&optional arg)
+  (defun is-current-blank? ()
+    (s-blank? (s-trim (current-line))))
   (interactive "P")
   (cond
-   ((s-blank? (s-trim (current-line)))
+   ((is-current-blank?)
     (kill-whole-line))
    (t
-    (sp-kill-sexp nil arg))))
+    (sp-kill-hybrid-sexp arg)
+    (when (is-current-blank?)
+      (kill-whole-line)))))
 
 (define-key sp-keymap (kbd "C-k") 'cb-sp:kill-blank-lines)
 #+end_src
