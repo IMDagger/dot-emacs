@@ -22,6 +22,8 @@ to generate the elisp file that will actually be loaded by Emacs.
   "I prefer large letters due to poor my eyesight.")
 (defvar cb:ergonomic-command-executing? nil
   "Allow to define Shift+Space ergonimic command executor binding, it's disabled by default for me.")
+(defvar cb:default-input-method "russian-computer"
+  "Some people would prefer TeX input method.")
 #+end_src
 
 * Remove all GUI elements except the mode line
@@ -1400,7 +1402,6 @@ crashes in Emacs 24.
 (set-keyboard-coding-system  'utf-8)
 (set-selection-coding-system 'utf-8)
 (prefer-coding-system        'utf-8)
-(setq-default default-input-method 'russian-computer)
 #+end_src
 * Keyboard macros
 ** Define a way to prompt for input in keyboard macros
@@ -1424,12 +1425,14 @@ If the input is non-empty, it is inserted at point."
 (setq x-select-enable-clipboard t)
 #+end_src
 * Input methods
-** Use TeX as the default alternative input method
-This allows you to enter mathematical symbols easily.
+** Use Russian (or TeX and etc) as the default alternative input method
+This allows you to enter national letters.
 #+begin_src emacs-lisp
-(setq default-input-method "TeX")
+(setq default-input-method cb:default-input-method)
 #+end_src
 ** Define a key command for setting method
+This allows you to enter mathematical symbols easily if you change to
+the TeX input method.
 #+begin_src emacs-lisp
 (bind-key "C-x C-\\" 'set-input-method)
 #+end_src
@@ -4296,6 +4299,8 @@ entry in `modeline-custom-description-functions'."
 (setq-default
  mode-line-format
  `(
+   ,mode-line-mule-info
+
    ;; --------------------------------------------------------------------------
    ;; Line and column number.
    (:propertize " %4l:" face mode-line-position)
