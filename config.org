@@ -20,6 +20,8 @@ to generate the elisp file that will actually be loaded by Emacs.
   "It tries to kill whole line if it's empty after previous kill.")
 (defvar cb:default-font-size 15
   "I prefer large letters due to poor my eyesight.")
+(defvar cb:ergonomic-command-executing? nil
+  "Allow to define Shift+Space ergonimic command executor binding, it's disabled by default for me.")
 #+end_src
 
 * Remove all GUI elements except the mode line
@@ -1438,7 +1440,8 @@ This allows you to enter mathematical symbols easily.
 #+end_src
 ** Define a more ergonomic M-x
 #+begin_src emacs-lisp
-(bind-key* "S-SPC" 'execute-extended-command)
+(when cb:ergonomic-command-executing?
+  (bind-key* "S-SPC" 'execute-extended-command))
 #+end_src
 ** Kill buffer and delete window on C-backspace
 #+begin_src emacs-lisp
@@ -1791,6 +1794,10 @@ Enable commands that are disabled by default.
 ** Define custom commands for exiting Emacs
 Makes exiting Emacs and killing emacsclient instances consistent.
 #+begin_src emacs-lisp
+(defun cb:try-to-close-frame ()
+  (condition-case nil (delete-frame)
+    (error (message "Type <C-c k k> to exit Emacs"))))
+
 (defun cb:exit-emacs ()
   (interactive)
   (when (yes-or-no-p "Kill Emacs? ")
@@ -1811,7 +1818,7 @@ Makes exiting Emacs and killing emacsclient instances consistent.
 #+end_src
 ** Rebind exit keys to prevent accidental exits when using org-mode
 #+begin_src emacs-lisp
-(bind-key* "C-x C-c" (command (message "Type <C-c k k> to exit Emacs")))
+(bind-key* "C-x C-c" (command (cb:try-to-close-frame)))
 (bind-key* "C-c k k" 'cb:exit-emacs-dwim)
 (bind-key* "C-c k e" 'cb:exit-emacs)
 #+end_src
@@ -8019,7 +8026,7 @@ Define a command picker for printer and scanner functions.
 #+end_src
 *** Key binding
 #+begin_src emacs-lisp
-(bind-key* "<f10>" 'printer-scanner-picker)
+(bind-key* "S-<f10>" 'printer-scanner-picker)
 #+end_src
 
 * JSON
@@ -8774,7 +8781,7 @@ Defines a command for going to the definition of the symbol at point.
 (after 'lisp-mode
   (define-key emacs-lisp-mode-map (kbd "C-c C-t") 'ert)
   (define-key emacs-lisp-mode-map (kbd "C-c C-l")
-    'emacs-lisp-byte-compile-and-load)))
+    'emacs-lisp-byte-compile-and-load))
 
 #+end_src
 ** IELM
@@ -9618,7 +9625,8 @@ FIX: the package file is malformed. Work around by manually autoloading
 #+begin_src emacs-lisp
 (let ((pkg-dir (-first (~ s-matches? (rx "python-" digit))
                        (f-directories cb:elpa-dir))))
-  (autoload 'python-mode (f-join pkg-dir "python.el") nil t))
+  (when pkg-dir
+    (autoload 'python-mode (f-join pkg-dir "python.el") nil t)))
 #+end_src
 *** Emulate prog-mode
 =python-mode= is not derived from prog mode, but we still want all the
