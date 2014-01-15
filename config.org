@@ -3832,7 +3832,8 @@ structured way.
    (t
     (sp-kill-hybrid-sexp arg)
     (when (and cb:aggressive-kill? (is-current-blank?))
-      (kill-whole-line)))))
+      (kill-append "\n" nil)
+      (delete-char 1)))))
 
 (define-key sp-keymap (kbd "C-k") 'cb-sp:kill-blank-lines)
 #+end_src
