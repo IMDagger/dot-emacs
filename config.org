@@ -9297,8 +9297,8 @@ under point, prompts for a var."
 
 Enable rainbow delimeters mode and key binding if it's necessary.
 #+begin_src emacs-lisp
-(after 'rainbow-delimters
-  (fn-hook 'rainbow-delimiters-hook
+(after 'rainbow-delimiters
+  (hook-fn 'rainbow-delimiters-hook
     (local-set-key (kbd "ESC ESC p") 'rainbow-delimiters-mode)
     (rainbow-delimiters-mode)))
 #+end_src
