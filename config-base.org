@@ -6448,7 +6448,6 @@ Use flycheck-ledger.
 ** Hideshow
 Add support for hideshow to ledger.
 #+begin_src emacs-lisp
-<<<<<<< HEAD:config.org
 (defvar ledger--transaction-start-re (rx bol (any digit "~" "="))
   "Regex matching the start of a transaction line.")
 
