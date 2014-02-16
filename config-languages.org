@@ -1343,6 +1343,19 @@ under point, prompts for a var."
 (add-hook 'clojure-mode-hook 'global-overtone-mode)
 #+end_src
 * Scheme
+** rainbow paretheses
+#+begin_src emacs-lisp
+(after 'scheme
+  (cb:install-package 'rainbow-delimiters t))
+#+end_src
+
+Enable rainbow delimeters mode and key binding if it's necessary.
+#+begin_src emacs-lisp
+(after 'rainbow-delimiters
+  (hook-fn 'rainbow-delimiters-hook
+    (local-set-key (kbd "ESC ESC p") 'rainbow-delimiters-mode)
+    (rainbow-delimiters-mode)))
+#+end_src
 ** auto-complete
 *** Enable for all scheme modes
 #+begin_src emacs-lisp
