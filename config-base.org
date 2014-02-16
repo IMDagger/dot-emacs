@@ -6690,7 +6690,7 @@ Define a command picker for printer and scanner functions.
 #+end_src
 *** Key binding
 #+begin_src emacs-lisp
-(bind-key* "<f10>" 'printer-scanner-picker)
+(bind-key* "S-<f10>" 'printer-scanner-picker)
 #+end_src
 
 * Mutt
