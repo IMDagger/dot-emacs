@@ -78,7 +78,9 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
+(eval-when-compile
+  (require 'cl-lib))
+
 (require 'highlight)
 
 (defgroup eval-sexp-fu nil
@@ -141,7 +143,7 @@
   "BOUNS is either the cell or the function returns, such that (BEGIN . END).
 Reurn the 4 values; bounds, highlighting, un-highlighting and error flashing procedure. This function is convenient to use with `define-eval-sexp-fu-flash-command'."
   (when (ignore-errors (preceding-sexp))
-    (flet ((bounds () (if (functionp bounds) (funcall bounds) bounds)))
+    (cl-flet ((bounds () (if (functionp bounds) (funcall bounds) bounds)))
       (let ((b (bounds)) (buf (current-buffer)))
         (when b
           (funcall eval-sexp-fu-flash-function b face eface buf))))))
@@ -224,7 +226,7 @@ See also `eval-sexp-fu-flash'."
 
 (require 'rx)
 (defun esf-forward-inner-sexp0 ()
-  (flet ((poss ()
+  (cl-flet ((poss ()
            (let
                ((prev (save-excursion (backward-sexp) (forward-sexp) (point)))
                 (next (save-excursion (forward-sexp) (backward-sexp) (point))))
@@ -356,115 +358,117 @@ such that ignores any prefix arguments."
   (eval-after-load 'slime
     '(esf-initialize-slime)))
 
-(dont-compile
-  (when (fboundp 'expectations)
-    (expectations
-      (desc "esf-forward-inner-sexp0")
-      (expect ?p
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "s+exp")
-          (goto-char (point-min))
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (expect ?p
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "s+exp")
-          (goto-char (1+ (point-min)))
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (expect ?\)
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "s(exp)")
-          (goto-char (1+ (point-min)))
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (desc "esf-forward-inner-sexp0 same line, but far near the next")
-      ;; Always previous, is this OK?
-      (expect ?0
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "sexp0   sexp1")
-          (goto-char (+ (point-min) 7))
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (desc "esf-forward-inner-sexp0 across lines")
-      (expect ?0
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "sexp0\n\n\n\nsexp1")
-          (goto-char (point-min))
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (expect ?0
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "sexp0\n\n\n\nsexp1")
-          (goto-char (point-min))
-          (forward-line)
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (expect ?1
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "sexp0\n\n\n\nsexp1")
-          (goto-char (point-min))
-          (forward-line 3)
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (expect ?1
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "sexp0\n\n\n\nsexp1")
-          (goto-char (point-min))
-          (forward-line 3)
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (expect ?1
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "sexp0\n\n\n\nsexp1")
-          (goto-char (point-min))
-          (forward-line 4)
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (desc "esf-forward-inner-sexp0 across lines (equal delta)")
-      ;; Always previous lines', is this OK?
-      (expect ?0
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "sexp0\n\n\n\nsexp1")
-          (goto-char (point-min))
-          (forward-line 2)
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (desc "esf-forward-inner-sexp0 no more")
-      (expect ?0
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "sexp0\n\n")
-          (goto-char (point-max))
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (desc "esf-forward-inner-sexp0 no less")
-      (expect ?0
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "\n\nsexp0")
-          (goto-char (point-min))
-          (esf-forward-inner-sexp0)
-          (char-before)))
-      (desc "esf-forward-inner-sexp0 no any")
-      (expect 5
-        (with-temp-buffer
-          (emacs-lisp-mode)
-          (insert "\n\n\n\n")
-          (goto-char (point-min))
-          (esf-forward-inner-sexp0)
-          (point)))
-      )))
+;; tests
+
+;; (when (and (fboundp 'expectations)
+;;            (fboundp 'desc)
+;;            (fboundp 'expect))
+;;   (expectations
+;;    (desc "esf-forward-inner-sexp0")
+;;    (expect ?p
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "s+exp")
+;;              (goto-char (point-min))
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (expect ?p
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "s+exp")
+;;              (goto-char (1+ (point-min)))
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (expect ?\)
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "s(exp)")
+;;              (goto-char (1+ (point-min)))
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (desc "esf-forward-inner-sexp0 same line, but far near the next")
+;;    ;; Always previous, is this OK?
+;;    (expect ?0
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "sexp0   sexp1")
+;;              (goto-char (+ (point-min) 7))
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (desc "esf-forward-inner-sexp0 across lines")
+;;    (expect ?0
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "sexp0\n\n\n\nsexp1")
+;;              (goto-char (point-min))
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (expect ?0
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "sexp0\n\n\n\nsexp1")
+;;              (goto-char (point-min))
+;;              (forward-line)
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (expect ?1
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "sexp0\n\n\n\nsexp1")
+;;              (goto-char (point-min))
+;;              (forward-line 3)
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (expect ?1
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "sexp0\n\n\n\nsexp1")
+;;              (goto-char (point-min))
+;;              (forward-line 3)
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (expect ?1
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "sexp0\n\n\n\nsexp1")
+;;              (goto-char (point-min))
+;;              (forward-line 4)
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (desc "esf-forward-inner-sexp0 across lines (equal delta)")
+;;    ;; Always previous lines', is this OK?
+;;    (expect ?0
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "sexp0\n\n\n\nsexp1")
+;;              (goto-char (point-min))
+;;              (forward-line 2)
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (desc "esf-forward-inner-sexp0 no more")
+;;    (expect ?0
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "sexp0\n\n")
+;;              (goto-char (point-max))
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (desc "esf-forward-inner-sexp0 no less")
+;;    (expect ?0
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "\n\nsexp0")
+;;              (goto-char (point-min))
+;;              (esf-forward-inner-sexp0)
+;;              (char-before)))
+;;    (desc "esf-forward-inner-sexp0 no any")
+;;    (expect 5
+;;            (with-temp-buffer
+;;              (emacs-lisp-mode)
+;;              (insert "\n\n\n\n")
+;;              (goto-char (point-min))
+;;              (esf-forward-inner-sexp0)
+;;              (point)))))
 
 (provide 'eval-sexp-fu)
 ;;; eval-sexp-fu.el ends here
