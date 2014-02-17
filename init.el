@@ -28,7 +28,7 @@
 
 ;;; Code:
 
-(defvar cb:use-vim-keybindings? t
+(defvar cb:use-vim-keybindings? nil
   "Set to nil to disable Evil-mode and associated key bindings.")
 
 ;; Initialise packages and install org-mode.
