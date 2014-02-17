@@ -2332,7 +2332,7 @@ PRED is a predicate to determine whether search method is currently available.
 #+end_src
 ** Add a global key to edit the current file with sudo
 #+begin_src emacs-lisp
-(bind-key* "C-x e" 'sudo-edit)
+(bind-key* "C-x M-e" 'sudo-edit)
 #+end_src
 * Mode groups
 /Mode groups/ are ad-hoc families of modes. They provide hooks for modes that
@@ -2661,50 +2661,52 @@ themes.
 *** Configure Solarized Light
 #+begin_src emacs-lisp
 (defun solarized-light ()
-  (interactive)
-  (cbcl:save-theme-settings 'solarized-light)
-  (load-theme 'solarized-light 'no-confirm)
-  (cb-colour:common-setup)
+;;  (interactive)
+;;  (cbcl:save-theme-settings 'solarized-light)
+;;  (load-theme 'solarized-light 'no-confirm)
+;;  (cb-colour:common-setup)
 
-  (after 'org
-    (set-face-background 'org-block-begin-line "#f8f1dc")
-    (set-face-background 'org-block-end-line "#f8f1dc")
-    (set-face-background 'org-block-background "#f8f1dc"))
+;;  (after 'org
+;;    (set-face-background 'org-block-begin-line "#f8f1dc")
+;;    (set-face-background 'org-block-end-line "#f8f1dc")
+;;    (set-face-background 'org-block-background "#f8f1dc"))
 
-  (after 'ledger-fonts
-    (set-face-background 'ledger-font-xact-highlight-face "#eee8d5")
-    (set-face-background 'ledger-occur-xact-face "#eee8d5"))
+;;  (after 'ledger-fonts
+;;    (set-face-background 'ledger-font-xact-highlight-face "#eee8d5")
+;;    (set-face-background 'ledger-occur-xact-face "#eee8d5"))
 
-  (after 'helm
-    (set-face-background  'helm-selection "white")
-    (set-face-foreground  'helm-selection "black"))
+;;  (after 'helm
+;;    (set-face-background  'helm-selection "white")
+;;    (set-face-foreground  'helm-selection "black"))
 
-  (after 'parenface-plus
-    (set-face-foreground  'paren-face "grey80")))
+;;  (after 'parenface-plus
+;;    (set-face-foreground  'paren-face "grey80"))
+ )
 #+end_src
 *** Configure Solarized Dark
 #+begin_src emacs-lisp
 (defun solarized-dark ()
   (interactive)
   (cbcl:save-theme-settings 'solarized-dark)
-  (load-theme 'solarized-dark 'no-confirm)
-  (cb-colour:common-setup)
+;;  (load-theme 'solarized-dark 'no-confirm)
+;;  (cb-colour:common-setup)
 
-  (after 'helm
-    (set-face-background  'helm-selection "black")
-    (set-face-foreground  'helm-selection "white"))
+;;  (after 'helm
+;;    (set-face-background  'helm-selection "black")
+;;    (set-face-foreground  'helm-selection "white"))
 
-  (after 'ledger-fonts
-    (set-face-background 'ledger-font-xact-highlight-face "#073642")
-    (set-face-background 'ledger-occur-xact-face "#073642"))
+;;  (after 'ledger-fonts
+;;    (set-face-background 'ledger-font-xact-highlight-face "#073642")
+;;    (set-face-background 'ledger-occur-xact-face "#073642"))
 
-  (after 'parenface-plus
-    (set-face-foreground  'paren-face "#505070"))
+;;  (after 'parenface-plus
+;;    (set-face-foreground  'paren-face "#505070"))
 
-  (after 'org
-    (set-face-background 'org-block-end-line "#11303b")
-    (set-face-background 'org-block-begin-line "#11303b")
-    (set-face-background 'org-block-background "#11303b")))
+;;  (after 'org
+;;    (set-face-background 'org-block-end-line "#11303b")
+;;    (set-face-background 'org-block-begin-line "#11303b")
+;;    (set-face-background 'org-block-background "#11303b"))
+ )
 #+end_src
 *** Make convenience aliases for the above functions
 #+begin_src emacs-lisp
@@ -3004,7 +3006,7 @@ Helm provides a general UI for searching through lists of items interactively.
 #+begin_src emacs-lisp
 (setq helm-adaptive-history-file (f-join cb:tmp-dir "helm-adaptive-history"))
 #+end_src
-** Evil
+** Key bindings
 #+begin_src emacs-lisp
 (after 'evil
   (bind-keys
@@ -3015,6 +3017,8 @@ Helm provides a general UI for searching through lists of items interactively.
 
   (evil-global-set-key 'normal (kbd "C-e") 'helm-etags-select)
   (evil-global-set-key 'normal (kbd "C-t") 'helm-imenu))
+
+(bind-key* "C-x C-b" 'helm-buffers-list)
 #+end_src
 ** Hide boring files in helm files lists
 #+begin_src emacs-lisp
@@ -3893,6 +3897,10 @@ structured way.
 (defun cb-sp:kill-blank-lines ()
   (defun is-current-blank? ()
     (s-blank? (s-trim (current-line))))
+  (defun cb-sp:forget-delete-line ()
+    (flet ((kill-region (begin end)
+                        (delete-region begin end)))
+      (kill-line)))
   (interactive)
   (cond
    ((is-current-blank?)
@@ -3902,8 +3910,8 @@ structured way.
     (when (and cb:aggressive-kill? (is-current-blank?))
       (kill-append "\n" nil)
       (let ((pt (point)))
-        (kill-whole-line)
-        (setq kill-ring (cdr kill-ring)))) ;; remove last killing from ring
+        (goto-char (line-beginning-position))
+        (cb-sp:forget-delete-line)))
      (goto-char (line-beginning-position)))))
 
 (define-key sp-keymap (kbd "C-k") 'cb-sp:kill-blank-lines)
