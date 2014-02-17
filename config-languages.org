@@ -118,6 +118,7 @@ Set a key binding for the above command.
 #+end_src
 
 * SGML
+Enable sgml-mode for HTML-pages or templates.
 #+begin_src emacs-lisp
 (setq-default sgml-xml-mode t)
 #+end_src
@@ -125,6 +126,21 @@ Set a key binding for the above command.
 #+begin_src emacs-lisp
 (after 'sgml-mode
   (define-key sgml-mode-map (kbd "M-q") 'tidy-xml-buffer))
+#+end_src
+** WEB mode hooks
+#+begin_src emacs-lisp
+(after 'sgml-mode
+  (hook-fn 'html-mode-hook
+    ;; Default indentation is usually 2 spaces, changing to 4.
+    (set (make-local-variable 'sgml-basic-offset) 4)
+    (cb:install-package 'web-mode t)
+    (web-mode)))
+(after 'web-mode
+  (hook-fn 'web-mode-hook
+    (setq web-mode-markup-indent-offset 4)
+    (setq web-mode-css-indent-offset 4)
+    (setq web-mode-code-indent-offset 4)
+    (setq web-mode-indent-style 4)))
 #+end_src
 * Markdown
 #+begin_src emacs-lisp
@@ -193,6 +209,7 @@ Define keys to move by headlines in normal state.
 ** Key bindings
 #+begin_src emacs-lisp
 (define-key c-mode-map (kbd "M-q") 'indent-dwim)
+(define-key c-mode-map (kbd "RET") 'newline-and-indent)
 #+end_src
 ** Insert headers
 #+begin_src emacs-lisp
@@ -1377,7 +1394,7 @@ Provides slime-like interaction for Scheme. I mainly use Racket, so the config
 below probably doesn't work for other Schemes.
 #+begin_src emacs-lisp
 (after 'scheme
-  (cb:install-package 'geiser))
+  (cb:install-package 'geiser t))
 #+end_src
 *** DEFER
 #+begin_src emacs-lisp
