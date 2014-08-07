@@ -1,3 +1,4 @@
+
 #+TITLE: Config: Languages
 #+DESCRIPTION: Configuration options loaded at Emacs startup.
 #+AUTHOR: Chris Barrett
@@ -1366,7 +1367,7 @@ under point, prompts for a var."
   (cb:install-package 'rainbow-delimiters t))
 #+end_src
 
-Enable rainbow delimeters mode and key binding if it's necessary.
+Enable rainbow delimiters mode and key binding if it's necessary.
 #+begin_src emacs-lisp
 (after 'rainbow-delimiters
   (hook-fn 'rainbow-delimiters-hook
