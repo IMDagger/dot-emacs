@@ -3906,13 +3906,13 @@ structured way.
    ((is-current-blank?)
     (kill-whole-line))
    (t
-    (call-interactively 'sp-kill-hybrid-sexp)
-    (when (and cb:aggressive-kill? (is-current-blank?))
-      (kill-append "\n" nil)
-      (let ((pt (point)))
+    (let ((pt (point)))
+      (call-interactively 'sp-kill-hybrid-sexp)
+      (when (and cb:aggressive-kill? (is-current-blank?))
+        (kill-append "\n" nil)
         (goto-char (line-beginning-position))
-        (cb-sp:forget-delete-line)))
-     (goto-char (line-beginning-position)))))
+        (cb-sp:forget-delete-line))
+        (goto-char pt)))))
 
 (define-key sp-keymap (kbd "C-k") 'cb-sp:kill-blank-lines)
 #+end_src
