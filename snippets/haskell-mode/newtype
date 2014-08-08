@@ -1,0 +1,5 @@
+# key: nt
+# name: newtype
+# condition: (cbyas:bol?)
+# --
+newtype ${1:name} = ${2:$1} $0

@@ -1,9 +1,9 @@
-;;; init.el --- Load org-babel to bootstrap configuration
+;;; init.el --- Bootstrap configuration
 
-;; Copyright (C) 2013 Chris Barrett
+;; Copyright (C) 2013, 2014 Chris Barrett
 
 ;; Author: Chris Barrett <chris.d.barrett@me.com>
-;; Version: 0.1
+;; Version: 0.2
 
 ;; This file is not part of GNU Emacs.
 
@@ -22,37 +22,45 @@
 
 ;;; Commentary:
 
-;; My configuration is managed in a number of org-mode files in this directory.
-;; This file is responsible for initialising org-babel before loading those
-;; files.
+;; This file is automatically loaded by Emacs on startup in order to perform
+;; user customisation. Here, we initialise the Emacs package manager and load
+;; configuration files in "./lisp".
 
 ;;; Code:
 
-(defvar cb:use-vim-keybindings? nil
-  "Set to nil to disable Evil-mode and associated key bindings.")
-
-;; Initialise packages and install org-mode.
 (require 'package)
-(add-to-list 'package-archives '("melpa" . "http://melpa.milkbox.net/packages/"))
-(add-to-list 'package-archives '("marmalade" . "http://marmalade-repo.org/packages/"))
-(add-to-list 'package-archives '("org" . "http://orgmode.org/elpa/") t)
+(setq package-archives '(("org" . "http://orgmode.org/elpa/")
+                         ("gnu" . "http://elpa.gnu.org/packages/")
+                         ("melpa" . "http://melpa.milkbox.net/packages/")))
 (package-initialize)
-(when (not package-archive-contents) (package-refresh-contents))
-(unless (package-installed-p 'org-plus-contrib) (package-install 'org-plus-contrib))
+(unless package-archive-contents
+  (package-refresh-contents))
 
-(require 'ob-tangle)
+(add-to-list 'load-path (concat user-emacs-directory "lisp"))
 
-(defun tangle-and-load-config-files ()
-  "Tangle and reload configuration files."
-  (interactive)
-  (message "Loading config files...")
-  (dolist (f (list "config-base.org" "config-orgmode.org" "config-languages.org"))
-    (message "Loading %s" f)
-    (org-babel-load-file (concat user-emacs-directory f)))
-  (message "Loading config files...done"))
+(require 'utils-common)
+(require 'config-base)
+(require 'config-modeline)
 
-(tangle-and-load-config-files)
+;; Load all files in lisp dir.
+;; Ignore flycheck temp files.
+(dolist (f (file-expand-wildcards (concat user-emacs-directory "lisp/*.el") t))
+  (let ((feature (intern (file-name-sans-extension (file-name-nondirectory f)))))
+    (eval
+     `(with-demoted-errors ,(concat (format "Init (%s):" feature) " %s")
+        (unless (string-match-p "^flycheck_" (symbol-name feature))
+          (require feature))))))
+
+(require 'custom)
+(require 'personal-config nil t)
+
+(unless (ignore-errors (emacs-init-time))
+  (setq default-directory user-home-directory))
 
 (provide 'init)
 
 ;;; init.el ends here
+
+;; Local Variables:
+;; no-byte-compile: t
+;; End:

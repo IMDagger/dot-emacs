@@ -1,3 +1,13 @@
+alias v.add2virtualenv add2virtualenv $*
+alias v.cdsitepackages cdsitepackages $*
+alias v.lssitepackages lssitepackages $*
+alias v.cd cdvirtualenv $*
+alias v.switch workon $*
+alias v.rm rmvirtualenv $*
+alias v.mk mkvirtualenv $*
+alias v.deactivate deactivate $*
+alias v workon $*
+alias rmr rm -r $*
 alias t top -o cpu
 alias gup git pull -v --rebase
 alias k tree -L 2 $*
@@ -30,9 +40,15 @@ alias grs git reset $*
 alias git hub $*
 alias ll ls -l $*
 alias emacs find-file $1
-alias e find-file $1
+alias e cb-eshell:find-file-or-files $*
 alias w3m w3m-find-file $1
 alias clear recenter 0
 alias l ls $*
 alias gh cd ${git rev-parse --show-toplevel}
 alias ge git exec $*
+alias cg cabal get $*
+alias csi cabal sandbox init $*
+alias cb cabal build $*
+alias cid cabal install --only-dependencies $*
+alias ci cabal install $*
+alias ct cabal test

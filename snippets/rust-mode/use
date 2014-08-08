@@ -1,0 +1,5 @@
+# key: u
+# name: use
+# condition: (cbyas:bol?)
+# --
+use ${1:ident};

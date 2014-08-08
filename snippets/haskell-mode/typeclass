@@ -1,0 +1,6 @@
+# key: tc
+# name: typeclass
+# condition: (cbyas:bol?)
+# --
+class $1 where
+  $0
