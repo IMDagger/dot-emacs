@@ -96,8 +96,8 @@
   (evil-define-key 'normal dired-mode-map [backtab] 'dired-hide-all)
   (evil-define-key 'normal dired-mode-map [backspace] 'dired-kill-subdir)
 
-  (bind-key* "M-d" 'dired-jump)
-  (bind-key* "M-D" 'dired-jump-other-window))
+  (bind-key* "S-M-d" 'dired-jump)
+  (bind-key* "S-M-D" 'dired-jump-other-window))
 
 (provide 'config-dired)
 
