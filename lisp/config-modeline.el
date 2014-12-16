@@ -206,6 +206,8 @@
 (setq-default
  mode-line-format
  `(
+   ,mode-line-mule-info
+
    ;; --------------------------------------------------------------------------
    ;; Line and column number.
    (:propertize " %4l:" face mode-line-position)
