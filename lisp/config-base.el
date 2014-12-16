@@ -56,6 +56,7 @@
 (autoload 'fringe-mode "fringe")
 (autoload 'toggle-centred-mode "centred-mode")
 (autoload 'vc-git-root "vc-git")
+(autoload 'vc-bzr-root "vc-bzr")
 (autoload 'transpose-frame "transpose-frame")
 (autoload 'flip-frame "transpose-frame")
 (autoload 'flop-frame "transpose-frame")
@@ -79,7 +80,7 @@
  `(comint-prompt-read-only             t                                            )
  `(confirm-nonexistent-file-or-buffer  nil                                          )
  `(custom-file                         (concat user-emacs-directory "custom.el")    )
- `(default-input-method                "TeX"                                        )
+ `(default-input-method                "russian-computer"                           )
  `(delete-by-moving-to-trash           nil                                          )
  `(delete-old-versions                 t                                            )
  `(echo-keystrokes                     0.02                                         )
@@ -279,7 +280,6 @@ Can indent backwards if there is only whitespace."
 (bind-key   "s-t"            'transpose-frame)
 (bind-key*  "C-<backspace>"  'cb:go-away-buffer)
 (bind-key*  "M-/"            'hippie-expand)
-(bind-key*  "S-SPC"          'execute-extended-command)
 
 ;;; Convenience aliases
 
