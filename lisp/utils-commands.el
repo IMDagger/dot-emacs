@@ -368,6 +368,10 @@ Changes the selected buffer."
           (insert-char ?\,)
           (just-one-space))))))
 
+(defun cb:try-to-close-frame ()
+  (condition-case nil (delete-frame)
+    (error (message "Type <C-c k k> to exit Emacs"))))
+
 ;;; Key bindings
 
 (define-key prog-mode-map (kbd "M-q") 'indent-dwim)
@@ -380,7 +384,7 @@ Changes the selected buffer."
 (bind-key* "C-c k e"          'cb:exit-emacs)
 (bind-key* "C-c k k"          'cb:exit-emacs-dwim)
 (bind-key* "C-x <backspace>"  'kill-current-buffer)
-(bind-key* "C-x C-c" (command (message "Type <C-c k k> to exit Emacs")))
+(bind-key* "C-x C-c" (command (cb:try-to-close-frame)))
 
 (provide 'utils-commands)
 
