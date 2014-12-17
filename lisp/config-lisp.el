@@ -44,6 +44,9 @@
 (hook-fn 'redshank-mode-hook
   (diminish 'redshank-mode))
 
+(cb:install-package 'rainbow-delimiters t)
+(add-hook 'cb:lisp-modes-hook 'rainbow-delimiters-mode-enable)
+
 (provide 'config-lisp)
 
 ;;; config-lisp.el ends here
