@@ -60,7 +60,7 @@
            (find-alternate-file (concat "/sudo:root@localhost:" file)))
       (add-hook 'kill-buffer-hook 'tramp-cleanup-this-connection nil t)))))
 
-(bind-key* "C-x e" 'sudo-edit)
+(bind-key* "C-x M-e" 'sudo-edit)
 
 ;;; Edit files with sudo if not writable.
 
