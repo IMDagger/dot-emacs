@@ -34,10 +34,18 @@
 (autoload 'thing-at-point-looking-at "thingatpt")
 
 (custom-set-variables
- '(ispell-program-name "aspell")
- '(ispell-dictionary "en_GB")
+ '(ispell-local-dictionary-alist
+   '(("russian-english"
+     "[АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЬЫЪЭЮЯабвгдеёжзийклмнопрстуфхцчшщьыъэюяA-Za-z]"
+     "[^АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЬЫЪЭЮЯабвгдеёжзийклмнопрстуфхцчшщьыъэюяA-Za-z]"
+     "[-']"  nil ("-d" "ru_RU,en_US") nil utf-8)))
+ '(ispell-program-name "hunspell")
+ '(ispell-dictionary "russian-english")
+ '(ispell-really-aspell nil)
+ '(ispell-really-hunspell t)
+ '(ispell-encoding8-command t)
  '(ispell-silently-savep t)
- '(flyspell-delay 1))
+ '(flyspell-delay 10))
 
 (defun ispell-add-to-dict (word)
   "Add WORD to the user's dictionary."
