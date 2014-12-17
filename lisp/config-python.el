@@ -146,14 +146,15 @@
   (insert ":")
   (just-one-space))
 
-(--each '(python-mode inferior-python-mode)
-  (super-smart-ops-configure-for-mode it
-    :add '("?" "$")
-    :custom
-    '(("," . cb-py:smart-comma)
-      ("*" . cb-py:smart-asterisk)
-      (":" . cb-py:smart-colon)
-      ("=" . cb-py:smart-equals))))
+(after 'python
+  (--each '(python-mode inferior-python-mode)
+    (super-smart-ops-configure-for-mode it
+      :add '("?" "$")
+      :custom
+      '(("," . cb-py:smart-comma)
+        ("*" . cb-py:smart-asterisk)
+        (":" . cb-py:smart-colon)
+        ("=" . cb-py:smart-equals)))))
 
 ;;; Insert docstrings
 
